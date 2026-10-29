@@ -18,13 +18,18 @@ export interface Yarn {
 
 export type ProjectStage = 'planned' | 'in_progress' | 'completed';
 
+/** Использование конкретной пряжи с указанием количества сложений */
+export interface YarnUsage {
+  yarnId: string;
+  folds: number; // число сложений этой пряжи
+}
+
 export interface Project {
   id: string;
   photos: string[];
   name: string;
   stage: ProjectStage;
-  yarnIds: string[];
-  folds: number; // число сложений
+  yarnUsages: YarnUsage[]; // массив пряжа + сложения
   needleSize: number;
   startDate: string;
   endDate: string;
@@ -33,8 +38,7 @@ export interface Project {
 
 export interface Sample {
   id: string;
-  yarnIds: string[];
-  folds: number;
+  yarnUsages: YarnUsage[];
   needleSize: number;
   photoBefore: string;
   stitchesWidthBefore: number;

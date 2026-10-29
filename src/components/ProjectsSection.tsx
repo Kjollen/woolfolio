@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Project, Yarn } from '../types';
+import { Project, Yarn, YarnUsage } from '../types';
+import { formatFoldedMeterage } from '../utils/yarnCalc';
 
 interface Props {
   projects: Project[];
@@ -19,25 +20,18 @@ const stageColors: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
 };
 
-function calcYarnThickness(yarns: Yarn[], folds: number): string {
-  if (yarns.length === 0) return '—';
-  const avgMeterage = yarns.reduce((sum, y) => sum + y.meterage, 0) / yarns.length;
-  // Rough estimation: thicker yarn = lower meterage
-  // Adjusted for folds
-  const effectiveMeterage = avgMeterage / folds;
-  if (effectiveMeterage > 300) return 'Тонкая (fino)';
-  if (effectiveMeterage > 200) return 'Средняя (sport)';
-  if (effectiveMeterage > 100) return 'Средне-толстая (worsted)';
-  return 'Толстая (bulky)';
-}
-
 const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  const getProjectYarns = (project: Project): Yarn[] =>
+    project.yarnUsages
+      .map((u) => yarns.find((y) => y.id === u.yarnId))
+      .filter((y): y is Yarn => !!y);
 
   const filteredProjects = projects.filter((project) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    const projectYarns = yarns.filter((y) => project.yarnIds.includes(y.id));
+    const projectYarns = getProjectYarns(project);
     return (
       project.name.toLowerCase().includes(q) ||
       project.notes.toLowerCase().includes(q) ||
@@ -50,9 +44,6 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
       )
     );
   });
-
-  const getProjectYarns = (project: Project) =>
-    yarns.filter((y) => project.yarnIds.includes(y.id));
 
   return (
     <div>
@@ -85,16 +76,30 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                     {stageLabels[project.stage]}
                   </span>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {projectYarns.map((y) => (
-                    <span key={y.id} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                      {y.name}
-                    </span>
-                  ))}
+                <div className="mt-2 space-y-1">
+                  {project.yarnUsages.map((usage) => {
+                    const yarn = yarns.find((y) => y.id === usage.yarnId);
+                    if (!yarn) return null;
+                    return (
+                      <div key={usage.yarnId} className="flex items-center gap-1.5">
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded truncate">
+                          {yarn.name}
+                        </span>
+                        {usage.folds > 1 && (
+                          <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                            ×{usage.folds}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  Спицы: {project.needleSize} мм • Сложений: {project.folds}
-                </p>
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                  <span>Спицы: {project.needleSize} мм</span>
+                  <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-medium">
+                    {formatFoldedMeterage(project.yarnUsages, yarns)}
+                  </span>
+                </div>
               </div>
             </div>
           );
@@ -142,24 +147,46 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                 </span>
               </div>
 
+              {/* Yarns with folds */}
               <div className="mt-4">
                 <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа</h3>
                 <div className="space-y-2">
-                  {getProjectYarns(selectedProject).map((y) => (
-                    <div key={y.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
-                      <img src={y.photo} alt={y.name} className="w-10 h-10 rounded-lg object-cover" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">{y.name}</p>
-                        <p className="text-xs text-gray-500">{y.manufacturer} • {y.color}</p>
+                  {selectedProject.yarnUsages.map((usage) => {
+                    const yarn = yarns.find((y) => y.id === usage.yarnId);
+                    if (!yarn) return null;
+                    return (
+                      <div key={usage.yarnId} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
+                        <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-700">{yarn.name}</p>
+                          <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color} • {yarn.meterage} м/100г</p>
+                        </div>
+                        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1">
+                          <i className="fas fa-layer-group text-xs text-purple-400"></i>
+                          <span className="text-sm font-bold text-purple-700">{usage.folds}</span>
+                          <span className="text-[10px] text-gray-400">нит.</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Calculated thickness */}
+              <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-calculator text-indigo-500"></i>
+                  <span className="text-xs text-indigo-600 uppercase tracking-wide font-medium">Итоговая толщина нити</span>
+                </div>
+                <p className="text-lg font-bold text-indigo-700 mt-1">
+                  {formatFoldedMeterage(selectedProject.yarnUsages, yarns)}
+                </p>
+                <p className="text-xs text-indigo-400 mt-0.5">
+                  рассчитано по формуле Р = (Р1 × Р2) ÷ (Р1 + Р2)
+                </p>
+              </div>
+
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <InfoItem label="Толщина нити" value={calcYarnThickness(getProjectYarns(selectedProject), selectedProject.folds)} />
-                <InfoItem label="Сложений" value={`${selectedProject.folds}`} />
                 <InfoItem label="Спицы" value={`${selectedProject.needleSize} мм`} />
                 <InfoItem label="Дата начала" value={selectedProject.startDate || '—'} />
                 <InfoItem label="Дата завершения" value={selectedProject.endDate || '—'} />

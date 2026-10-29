@@ -69,6 +69,23 @@ export const mockYarns: Yarn[] = [
     pricePerGram: 2.8,
     totalPrice: 840,
   },
+  {
+    id: 'y5',
+    photo: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?w=300&h=300&fit=crop',
+    name: 'Kid Mohair',
+    manufacturer: 'Lang Yarns',
+    article: '120',
+    composition: '70% кид мохер, 30% шёлк',
+    color: 'Пудровый',
+    weight: 25,
+    meterage: 210,
+    totalMeterage: 630,
+    remaining: 400,
+    shop: 'Клубок',
+    orderNumber: 'ORD-2024-042',
+    pricePerGram: 8.0,
+    totalPrice: 600,
+  },
 ];
 
 export const mockProjects: Project[] = [
@@ -80,8 +97,11 @@ export const mockProjects: Project[] = [
     ],
     name: 'Свитер оверсайз',
     stage: 'in_progress',
-    yarnIds: ['y1', 'y4'],
-    folds: 2,
+    yarnUsages: [
+      { yarnId: 'y1', folds: 1 }, // Merino Extra 105 м/100г × 1
+      { yarnId: 'y5', folds: 1 }, // Kid Mohair 210 м/100г × 1
+      // Расчёт: (105 × 210) / (105 + 210) = 22050 / 315 = 70 м/100г
+    ],
     needleSize: 5,
     startDate: '2024-10-01',
     endDate: '',
@@ -94,8 +114,9 @@ export const mockProjects: Project[] = [
     ],
     name: 'Шаль "Зимний вечер"',
     stage: 'completed',
-    yarnIds: ['y2'],
-    folds: 1,
+    yarnUsages: [
+      { yarnId: 'y2', folds: 2 }, // Alpaca Silk 167 м/100г × 2 = 83.5 м/100г
+    ],
     needleSize: 3.5,
     startDate: '2024-08-15',
     endDate: '2024-09-20',
@@ -106,20 +127,41 @@ export const mockProjects: Project[] = [
     photos: [],
     name: 'Летний топ',
     stage: 'planned',
-    yarnIds: ['y3'],
-    folds: 1,
+    yarnUsages: [
+      { yarnId: 'y3', folds: 1 }, // Cotton Soft 160 м/100г × 1
+    ],
     needleSize: 3,
     startDate: '',
     endDate: '',
     notes: 'Планирую начать летом. Нужен образец.',
+  },
+  {
+    id: 'p4',
+    photos: [
+      'https://images.unsplash.com/photo-1519378058457-4c29a0a2efac?w=400&h=300&fit=crop',
+    ],
+    name: 'Кардиган "Облако"',
+    stage: 'in_progress',
+    yarnUsages: [
+      { yarnId: 'y4', folds: 2 }, // Nordic Wool 250 м/100г × 2 = 125 м/100г
+      { yarnId: 'y5', folds: 1 }, // Kid Mohair 210 м/100г × 1
+      // Расчёт: (125 × 210) / (125 + 210) = 26250 / 335 ≈ 78 м/100г
+    ],
+    needleSize: 6,
+    startDate: '2024-11-10',
+    endDate: '',
+    notes: 'Пушистый кардиган. Вяжу снизу вверх.',
   },
 ];
 
 export const mockSamples: Sample[] = [
   {
     id: 's1',
-    yarnIds: ['y1'],
-    folds: 1,
+    yarnUsages: [
+      { yarnId: 'y1', folds: 1 }, // 105 м/100г × 1
+      { yarnId: 'y5', folds: 1 }, // 210 м/100г × 1
+      // (105 × 210) / (105 + 210) = 70 м/100г
+    ],
     needleSize: 4,
     photoBefore: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300&h=300&fit=crop',
     stitchesWidthBefore: 20,
@@ -134,8 +176,11 @@ export const mockSamples: Sample[] = [
   },
   {
     id: 's2',
-    yarnIds: ['y2', 'y1'],
-    folds: 2,
+    yarnUsages: [
+      { yarnId: 'y2', folds: 2 }, // 167 / 2 = 83.5 м/100г
+      { yarnId: 'y4', folds: 1 }, // 250 м/100г × 1
+      // (83.5 × 250) / (83.5 + 250) = 20875 / 333.5 ≈ 63 м/100г
+    ],
     needleSize: 5,
     photoBefore: 'https://images.unsplash.com/photo-1590439474324-30012ed6d324?w=300&h=300&fit=crop',
     stitchesWidthBefore: 16,
