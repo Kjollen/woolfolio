@@ -9,14 +9,13 @@ export const mockYarns: Yarn[] = [
     article: '1065',
     composition: '100% мериносовая шерсть',
     color: 'Тёмно-синий',
-    weight: 50,
+    totalWeight: 500,
     meterage: 105,
     totalMeterage: 525,
-    remaining: 320,
     shop: 'Пряжа.ru',
     orderNumber: 'ORD-2024-001',
     pricePerGram: 3.2,
-    totalPrice: 800,
+    totalPrice: 1600,
   },
   {
     id: 'y2',
@@ -26,14 +25,13 @@ export const mockYarns: Yarn[] = [
     article: '2040',
     composition: '70% альпака, 30% шёлк',
     color: 'Бежевый',
-    weight: 50,
+    totalWeight: 500,
     meterage: 167,
     totalMeterage: 835,
-    remaining: 500,
     shop: 'Клубок',
     orderNumber: 'ORD-2024-015',
     pricePerGram: 5.8,
-    totalPrice: 1450,
+    totalPrice: 2900,
   },
   {
     id: 'y3',
@@ -43,14 +41,13 @@ export const mockYarns: Yarn[] = [
     article: '3310',
     composition: '100% хлопок',
     color: 'Мятный',
-    weight: 50,
+    totalWeight: 400,
     meterage: 160,
-    totalMeterage: 480,
-    remaining: 150,
+    totalMeterage: 640,
     shop: 'Иголочка',
     orderNumber: 'ORD-2024-022',
     pricePerGram: 2.4,
-    totalPrice: 360,
+    totalPrice: 960,
   },
   {
     id: 'y4',
@@ -60,14 +57,13 @@ export const mockYarns: Yarn[] = [
     article: '550',
     composition: '49% шерсть, 51% акрил',
     color: 'Серый меланж',
-    weight: 100,
+    totalWeight: 1000,
     meterage: 250,
-    totalMeterage: 750,
-    remaining: 600,
+    totalMeterage: 2500,
     shop: 'Пряжа.ru',
     orderNumber: 'ORD-2024-030',
     pricePerGram: 2.8,
-    totalPrice: 840,
+    totalPrice: 2800,
   },
   {
     id: 'y5',
@@ -77,14 +73,13 @@ export const mockYarns: Yarn[] = [
     article: '120',
     composition: '70% кид мохер, 30% шёлк',
     color: 'Пудровый',
-    weight: 25,
+    totalWeight: 200,
     meterage: 210,
-    totalMeterage: 630,
-    remaining: 400,
+    totalMeterage: 420,
     shop: 'Клубок',
     orderNumber: 'ORD-2024-042',
     pricePerGram: 8.0,
-    totalPrice: 600,
+    totalPrice: 1600,
   },
 ];
 
@@ -98,9 +93,8 @@ export const mockProjects: Project[] = [
     name: 'Свитер оверсайз',
     stage: 'in_progress',
     yarnUsages: [
-      { yarnId: 'y1', folds: 1 }, // Merino Extra 105 м/100г × 1
-      { yarnId: 'y5', folds: 1 }, // Kid Mohair 210 м/100г × 1
-      // Расчёт: (105 × 210) / (105 + 210) = 22050 / 315 = 70 м/100г
+      { yarnId: 'y1', folds: 1, consumed: 180 },
+      { yarnId: 'y5', folds: 1, consumed: 50 },
     ],
     needleSize: 5,
     startDate: '2024-10-01',
@@ -115,7 +109,7 @@ export const mockProjects: Project[] = [
     name: 'Шаль "Зимний вечер"',
     stage: 'completed',
     yarnUsages: [
-      { yarnId: 'y2', folds: 2 }, // Alpaca Silk 167 м/100г × 2 = 83.5 м/100г
+      { yarnId: 'y2', folds: 2, consumed: 150 },
     ],
     needleSize: 3.5,
     startDate: '2024-08-15',
@@ -128,7 +122,7 @@ export const mockProjects: Project[] = [
     name: 'Летний топ',
     stage: 'planned',
     yarnUsages: [
-      { yarnId: 'y3', folds: 1 }, // Cotton Soft 160 м/100г × 1
+      { yarnId: 'y3', folds: 1, consumed: 0 },
     ],
     needleSize: 3,
     startDate: '',
@@ -143,9 +137,8 @@ export const mockProjects: Project[] = [
     name: 'Кардиган "Облако"',
     stage: 'in_progress',
     yarnUsages: [
-      { yarnId: 'y4', folds: 2 }, // Nordic Wool 250 м/100г × 2 = 125 м/100г
-      { yarnId: 'y5', folds: 1 }, // Kid Mohair 210 м/100г × 1
-      // Расчёт: (125 × 210) / (125 + 210) = 26250 / 335 ≈ 78 м/100г
+      { yarnId: 'y4', folds: 2, consumed: 250 },
+      { yarnId: 'y5', folds: 1, consumed: 80 },
     ],
     needleSize: 6,
     startDate: '2024-11-10',
@@ -158,9 +151,8 @@ export const mockSamples: Sample[] = [
   {
     id: 's1',
     yarnUsages: [
-      { yarnId: 'y1', folds: 1 }, // 105 м/100г × 1
-      { yarnId: 'y5', folds: 1 }, // 210 м/100г × 1
-      // (105 × 210) / (105 + 210) = 70 м/100г
+      { yarnId: 'y1', folds: 1 },
+      { yarnId: 'y5', folds: 1 },
     ],
     needleSize: 4,
     photoBefore: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300&h=300&fit=crop',
@@ -177,9 +169,8 @@ export const mockSamples: Sample[] = [
   {
     id: 's2',
     yarnUsages: [
-      { yarnId: 'y2', folds: 2 }, // 167 / 2 = 83.5 м/100г
-      { yarnId: 'y4', folds: 1 }, // 250 м/100г × 1
-      // (83.5 × 250) / (83.5 + 250) = 20875 / 333.5 ≈ 63 м/100г
+      { yarnId: 'y2', folds: 2 },
+      { yarnId: 'y4', folds: 1 },
     ],
     needleSize: 5,
     photoBefore: 'https://images.unsplash.com/photo-1590439474324-30012ed6d324?w=300&h=300&fit=crop',
@@ -220,3 +211,25 @@ export const mockPatterns: Pattern[] = [
     name: 'Носки классические',
   },
 ];
+
+/**
+ * Подсчёт суммарного расхода пряжи по всем проектам
+ */
+export function calcYarnConsumed(yarnId: string, projects: Project[]): number {
+  let consumed = 0;
+  for (const project of projects) {
+    for (const usage of project.yarnUsages) {
+      if (usage.yarnId === yarnId && usage.consumed) {
+        consumed += usage.consumed;
+      }
+    }
+  }
+  return consumed;
+}
+
+/**
+ * Подсчёт остатка пряжи = общий вес бобины - суммарный расход по всем проектам
+ */
+export function calcYarnRemaining(yarnId: string, totalWeight: number, projects: Project[]): number {
+  return totalWeight - calcYarnConsumed(yarnId, projects);
+}

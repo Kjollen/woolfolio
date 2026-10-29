@@ -100,8 +100,15 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                     </span>
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  Спицы: {project.needleSize} мм
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                  <span>Спицы: {project.needleSize} мм</span>
+                  <span className="text-gray-400">
+                    {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0) > 0 && (
+                      <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                        {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0)}г
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
@@ -150,7 +157,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                 </span>
               </div>
 
-              {/* Yarns with folds */}
+              {/* Yarns with folds and consumption */}
               <div className="mt-4">
                 <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа и сложения</h3>
                 <div className="space-y-2">
@@ -158,17 +165,28 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                     const yarn = yarns.find((y) => y.id === usage.yarnId);
                     if (!yarn) return null;
                     return (
-                      <div key={usage.yarnId} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
-                        <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-700">{yarn.name}</p>
-                          <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color}</p>
-                          <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
+                      <div key={usage.yarnId} className="bg-gray-50 rounded-lg p-2">
+                        <div className="flex items-center gap-3">
+                          <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-700">{yarn.name}</p>
+                            <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color}</p>
+                            <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
+                          </div>
+                          <div className="flex flex-col items-center bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+                            <span className="text-[10px] text-purple-600 uppercase tracking-wide">Сложений</span>
+                            <span className="text-lg font-bold text-purple-700">{usage.folds}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-center bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
-                          <span className="text-[10px] text-purple-600 uppercase tracking-wide">Сложений</span>
-                          <span className="text-lg font-bold text-purple-700">{usage.folds}</span>
-                        </div>
+                        {usage.consumed !== undefined && usage.consumed > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
+                            <span className="text-xs text-gray-500">
+                              <i className="fas fa-weight-hanging mr-1 text-gray-400"></i>
+                              Расход на проект
+                            </span>
+                            <span className="text-sm font-bold text-gray-700">{usage.consumed} г</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

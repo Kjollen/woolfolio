@@ -6,10 +6,9 @@ export interface Yarn {
   article: string;
   composition: string;
   color: string;
-  weight: number; // вес в граммах
+  totalWeight: number; // общий вес бобины в граммах (константа)
   meterage: number; // метраж (м/100г)
   totalMeterage: number; // общий метраж бобины
-  remaining: number; // остаток в граммах
   shop: string;
   orderNumber: string;
   pricePerGram: number;
@@ -22,6 +21,7 @@ export type ProjectStage = 'planned' | 'in_progress' | 'completed';
 export interface YarnUsage {
   yarnId: string;
   folds: number; // число сложений этой пряжи
+  consumed?: number; // расход в граммах (только для проектов)
 }
 
 export interface Project {

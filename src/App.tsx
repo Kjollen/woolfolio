@@ -21,7 +21,7 @@ function App() {
   const renderSection = () => {
     switch (activeSection) {
       case 'yarn':
-        return <YarnSection yarns={mockYarns} searchQuery={searchQuery} />;
+        return <YarnSection yarns={mockYarns} projects={mockProjects} searchQuery={searchQuery} />;
       case 'projects':
         return <ProjectsSection projects={mockProjects} yarns={mockYarns} searchQuery={searchQuery} />;
       case 'samples':
