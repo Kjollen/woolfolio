@@ -76,29 +76,32 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                     {stageLabels[project.stage]}
                   </span>
                 </div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {project.yarnUsages.map((usage) => {
                     const yarn = yarns.find((y) => y.id === usage.yarnId);
                     if (!yarn) return null;
                     return (
-                      <div key={usage.yarnId} className="flex items-center gap-1.5">
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded truncate">
+                      <div key={usage.yarnId} className="flex items-center justify-between gap-2">
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded truncate flex-1">
                           {yarn.name}
                         </span>
-                        {usage.folds > 1 && (
-                          <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
-                            ×{usage.folds}
-                          </span>
-                        )}
+                        <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                          ×{usage.folds}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                  <span>Спицы: {project.needleSize} мм</span>
-                  <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-medium">
-                    {formatFoldedMeterage(project.yarnUsages, yarns)}
-                  </span>
+                <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-indigo-600 uppercase tracking-wide font-medium">Толщина нити</span>
+                    <span className="text-sm font-bold text-indigo-700">
+                      {formatFoldedMeterage(project.yarnUsages, yarns)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  Спицы: {project.needleSize} мм
                 </div>
               </div>
             </div>
@@ -149,7 +152,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
 
               {/* Yarns with folds */}
               <div className="mt-4">
-                <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа</h3>
+                <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа и сложения</h3>
                 <div className="space-y-2">
                   {selectedProject.yarnUsages.map((usage) => {
                     const yarn = yarns.find((y) => y.id === usage.yarnId);
@@ -159,12 +162,12 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                         <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-700">{yarn.name}</p>
-                          <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color} • {yarn.meterage} м/100г</p>
+                          <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color}</p>
+                          <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
                         </div>
-                        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1">
-                          <i className="fas fa-layer-group text-xs text-purple-400"></i>
-                          <span className="text-sm font-bold text-purple-700">{usage.folds}</span>
-                          <span className="text-[10px] text-gray-400">нит.</span>
+                        <div className="flex flex-col items-center bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+                          <span className="text-[10px] text-purple-600 uppercase tracking-wide">Сложений</span>
+                          <span className="text-lg font-bold text-purple-700">{usage.folds}</span>
                         </div>
                       </div>
                     );
