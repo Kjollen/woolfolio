@@ -47,7 +47,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
                 <i className="fas fa-heart text-white text-sm"></i>
               </div>
               <h1 className="text-lg font-bold text-gray-800 hidden sm:block">KnitTracker</h1>
@@ -62,7 +62,7 @@ function App() {
                   placeholder="Поиск по всем разделам..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:bg-white transition-all"
+                  className="w-full pl-9 pr-4 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:bg-white transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -95,7 +95,7 @@ function App() {
               onClick={() => setActiveSection(section.id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeSection === section.id
-                  ? 'bg-purple-600 text-white shadow-sm'
+                  ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -122,7 +122,7 @@ function App() {
                 }}
                 className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                   activeSection === section.id
-                    ? 'bg-purple-600 text-white'
+                    ? 'bg-emerald-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
@@ -137,10 +137,10 @@ function App() {
         {/* Section Title */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <i className={`${sections.find(s => s.id === activeSection)?.icon} text-purple-500`}></i>
+            <i className={`${sections.find(s => s.id === activeSection)?.icon} text-emerald-500`}></i>
             {sections.find(s => s.id === activeSection)?.label}
           </h2>
-          <button className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm">
+          <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
             <i className="fas fa-plus mr-1"></i>
             <span className="hidden sm:inline">Добавить</span>
           </button>
@@ -158,7 +158,7 @@ function App() {
               key={section.id}
               onClick={() => setActiveSection(section.id)}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-all ${
-                activeSection === section.id ? 'text-purple-600' : 'text-gray-400'
+                activeSection === section.id ? 'text-emerald-600' : 'text-gray-400'
               }`}
             >
               <i className={`${section.icon} text-lg`}></i>

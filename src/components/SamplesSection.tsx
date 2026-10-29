@@ -68,10 +68,10 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                     if (!yarn) return null;
                     return (
                       <div key={usage.yarnId} className="flex items-center justify-between gap-2">
-                        <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded truncate flex-1">
+                        <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded truncate flex-1">
                           {yarn.name}
                         </span>
-                        <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
                           ×{usage.folds}
                         </span>
                       </div>
@@ -135,9 +135,9 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                           <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color}</p>
                           <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
                         </div>
-                        <div className="flex flex-col items-center bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
-                          <span className="text-[10px] text-purple-600 uppercase tracking-wide">Сложений</span>
-                          <span className="text-lg font-bold text-purple-700">{usage.folds}</span>
+                        <div className="flex flex-col items-center bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                          <span className="text-[10px] text-emerald-600 uppercase tracking-wide">Сложений</span>
+                          <span className="text-lg font-bold text-emerald-700">{usage.folds}</span>
                         </div>
                       </div>
                     );
@@ -235,7 +235,7 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
               </div>
 
               <div className="flex gap-2">
-                <button className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition-colors">
+                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button

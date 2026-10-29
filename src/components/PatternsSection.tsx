@@ -33,8 +33,8 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
                 />
               </div>
             ) : (
-              <div className="aspect-[4/3] bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
-                <i className="fas fa-file-alt text-4xl text-indigo-200"></i>
+              <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+                <i className="fas fa-file-alt text-4xl text-emerald-200"></i>
               </div>
             )}
             <div className="p-3">
@@ -119,7 +119,7 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
               )}
 
               <div className="mt-5 flex gap-2">
-                <button className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition-colors">
+                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button

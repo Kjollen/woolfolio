@@ -55,7 +55,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                 <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.article}</p>
                 <div className="mt-2 flex items-center justify-between text-xs">
                   <span className="text-gray-600">{yarn.color}</span>
-                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                  <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
                     {remaining}г
                   </span>
                 </div>
@@ -64,7 +64,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                   <div className="w-full bg-gray-100 rounded-full h-1.5">
                     <div
                       className={`h-1.5 rounded-full transition-all ${
-                        usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-purple-400'
+                        usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-emerald-400'
                       }`}
                       style={{ width: `${Math.min(usedPercent, 100)}%` }}
                     ></div>
@@ -112,20 +112,20 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
               </div>
 
               {/* Остаток */}
-              <div className="mt-4 bg-purple-50 border border-purple-100 rounded-xl p-3">
+              <div className="mt-4 bg-emerald-50 border border-emerald-100 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-purple-600 uppercase tracking-wide font-medium">Остаток</span>
-                  <span className="text-lg font-bold text-purple-700">
+                  <span className="text-xs text-emerald-600 uppercase tracking-wide font-medium">Остаток</span>
+                  <span className="text-lg font-bold text-emerald-700">
                     {calcYarnRemaining(selectedYarn.id, selectedYarn.totalWeight, projects)} г
                   </span>
                 </div>
-                <div className="w-full bg-purple-100 rounded-full h-2">
+                <div className="w-full bg-emerald-100 rounded-full h-2">
                   <div
-                    className="h-2 rounded-full bg-purple-500 transition-all"
+                    className="h-2 rounded-full bg-emerald-500 transition-all"
                     style={{ width: `${100 - (calcYarnConsumed(selectedYarn.id, projects) / selectedYarn.totalWeight) * 100}%` }}
                   ></div>
                 </div>
-                <p className="text-xs text-purple-400 mt-1">
+                <p className="text-xs text-emerald-400 mt-1">
                   Использовано {calcYarnConsumed(selectedYarn.id, projects)}г из {selectedYarn.totalWeight}г
                 </p>
               </div>
@@ -134,7 +134,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
               {getProjectsUsingYarn(selectedYarn.id).length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <h3 className="font-semibold text-gray-700 text-sm mb-2">
-                    <i className="fas fa-link mr-1 text-purple-400"></i> Используется в проектах
+                    <i className="fas fa-link mr-1 text-emerald-400"></i> Используется в проектах
                   </h3>
                   <div className="space-y-2">
                     {getProjectsUsingYarn(selectedYarn.id).map((project) => {
@@ -147,7 +147,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                             )}
                             <span className="text-sm text-gray-700">{project.name}</span>
                           </div>
-                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium">
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-medium">
                             {usage?.consumed || 0}г
                           </span>
                         </div>
@@ -170,7 +170,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
               </div>
 
               <div className="mt-5 flex gap-2">
-                <button className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition-colors">
+                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button
