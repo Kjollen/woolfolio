@@ -42,20 +42,23 @@ const MultiFileUploader: React.FC<Props> = ({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
+      const filesToProcess = Array.from(files).slice(0, maxFiles - values.length);
       const newFiles: string[] = [];
-      Array.from(files).forEach((file) => {
-        if (values.length + newFiles.length < maxFiles) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              newFiles.push(event.target.result as string);
-              if (newFiles.length === files.length) {
-                onChange([...values, ...newFiles]);
-              }
-            }
-          };
-          reader.readAsDataURL(file);
-        }
+      let processedCount = 0;
+      
+      filesToProcess.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            newFiles.push(event.target.result as string);
+          }
+          processedCount++;
+          
+          if (processedCount === filesToProcess.length) {
+            onChange([...values, ...newFiles]);
+          }
+        };
+        reader.readAsDataURL(file);
       });
     }
   };
@@ -75,20 +78,23 @@ const MultiFileUploader: React.FC<Props> = ({
     
     const files = e.dataTransfer.files;
     if (files) {
+      const filesToProcess = Array.from(files).slice(0, maxFiles - values.length);
       const newFiles: string[] = [];
-      Array.from(files).forEach((file) => {
-        if (values.length + newFiles.length < maxFiles) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              newFiles.push(event.target.result as string);
-              if (newFiles.length === files.length) {
-                onChange([...values, ...newFiles]);
-              }
-            }
-          };
-          reader.readAsDataURL(file);
-        }
+      let processedCount = 0;
+      
+      filesToProcess.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            newFiles.push(event.target.result as string);
+          }
+          processedCount++;
+          
+          if (processedCount === filesToProcess.length) {
+            onChange([...values, ...newFiles]);
+          }
+        };
+        reader.readAsDataURL(file);
       });
     }
   };
@@ -126,8 +132,15 @@ const MultiFileUploader: React.FC<Props> = ({
                 />
               )}
               {isPdf(value) && (
-                <div className="w-full h-24 flex items-center justify-center bg-red-50 dark:bg-red-900/20 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <i className="fas fa-file-pdf text-3xl text-red-500"></i>
+                <div className="w-full h-24 flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/20 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+                  <i className="fas fa-file-pdf text-3xl text-red-500 mb-1"></i>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate w-full text-center">PDF</span>
+                </div>
+              )}
+              {!isImage(value) && !isPdf(value) && (
+                <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+                  <i className="fas fa-file text-3xl text-gray-400 mb-1"></i>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate w-full text-center">Файл</span>
                 </div>
               )}
               <button
