@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Section } from './types';
 import { mockYarns, mockProjects, mockSamples, mockPatterns } from './data/mockData';
 import YarnSection from './components/YarnSection';
@@ -8,6 +8,8 @@ import PatternsSection from './components/PatternsSection';
 import Dashboard from './components/Dashboard';
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
 
 const sections: { id: Section; label: string; icon: string }[] = [
@@ -24,9 +26,32 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { user, logout, isLoading } = useAuth();
+  const mainRef = useRef<HTMLDivElement>(null);
   
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
+
+  // Автоскролл наверх при переключении раздела
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeSection]);
+
+  // Экран авторизации
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   const renderSection = () => {
     switch (activeSection) {
@@ -171,7 +196,7 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 md:ml-64" {...swipeHandlers}>
+      <div ref={mainRef} className="flex-1 md:ml-64" {...swipeHandlers}>
         {/* Swipe edge indicator */}
         <div 
           className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
@@ -285,6 +310,29 @@ function App() {
                   <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
                 </button>
 
+                {/* User menu */}
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-medium text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-200">{user.name}</span>
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{user.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={logout}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    >
+                      <i className="fas fa-sign-out-alt"></i>
+                      Выйти
+                    </button>
+                  </div>
+                </div>
+
                 {/* Add button */}
                 <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
                   <i className="fas fa-plus mr-1"></i>
@@ -306,7 +354,9 @@ function App() {
 
 const AppWithProviders = () => (
   <ThemeProvider>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </ThemeProvider>
 );
 
