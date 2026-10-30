@@ -6,11 +6,16 @@ import ProjectsSection from './components/ProjectsSection';
 import SamplesSection from './components/SamplesSection';
 import PatternsSection from './components/PatternsSection';
 import Dashboard from './components/Dashboard';
+import AddYarnForm from './components/AddYarnForm';
+import AddProjectForm from './components/AddProjectForm';
+import AddSampleForm from './components/AddSampleForm';
+import AddPatternForm from './components/AddPatternForm';
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
+import { Yarn, Project, Sample, Pattern } from './types';
 
 const sections: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Главная', icon: 'fas fa-home' },
@@ -28,6 +33,18 @@ function App() {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isLoading } = useAuth();
   const mainRef = useRef<HTMLDivElement>(null);
+  
+  // Данные
+  const [yarns, setYarns] = useState<Yarn[]>(mockYarns);
+  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [samples, setSamples] = useState<Sample[]>(mockSamples);
+  const [patterns, setPatterns] = useState<Pattern[]>(mockPatterns);
+  
+  // Формы добавления
+  const [showAddYarn, setShowAddYarn] = useState(false);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [showAddSample, setShowAddSample] = useState(false);
+  const [showAddPattern, setShowAddPattern] = useState(false);
   
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
@@ -56,26 +73,59 @@ function App() {
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <Dashboard yarns={mockYarns} projects={mockProjects} samples={mockSamples} patterns={mockPatterns} />;
+        return <Dashboard yarns={yarns} projects={projects} samples={samples} patterns={patterns} />;
       case 'yarn':
-        return <YarnSection yarns={mockYarns} projects={mockProjects} searchQuery={searchQuery} />;
+        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} />;
       case 'projects':
-        return <ProjectsSection projects={mockProjects} yarns={mockYarns} searchQuery={searchQuery} />;
+        return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} />;
       case 'samples':
-        return <SamplesSection samples={mockSamples} yarns={mockYarns} searchQuery={searchQuery} />;
+        return <SamplesSection samples={samples} yarns={yarns} searchQuery={searchQuery} />;
       case 'patterns':
-        return <PatternsSection patterns={mockPatterns} searchQuery={searchQuery} />;
+        return <PatternsSection patterns={patterns} searchQuery={searchQuery} />;
     }
   };
 
   const getCount = (section: Section) => {
     switch (section) {
       case 'dashboard': return null;
-      case 'yarn': return mockYarns.length;
-      case 'projects': return mockProjects.length;
-      case 'samples': return mockSamples.length;
-      case 'patterns': return mockPatterns.length;
+      case 'yarn': return yarns.length;
+      case 'projects': return projects.length;
+      case 'samples': return samples.length;
+      case 'patterns': return patterns.length;
     }
+  };
+
+  const handleAddClick = () => {
+    switch (activeSection) {
+      case 'yarn':
+        setShowAddYarn(true);
+        break;
+      case 'projects':
+        setShowAddProject(true);
+        break;
+      case 'samples':
+        setShowAddSample(true);
+        break;
+      case 'patterns':
+        setShowAddPattern(true);
+        break;
+    }
+  };
+
+  const handleSaveYarn = (yarn: Yarn) => {
+    setYarns([...yarns, yarn]);
+  };
+
+  const handleSaveProject = (project: Project) => {
+    setProjects([...projects, project]);
+  };
+
+  const handleSaveSample = (sample: Sample) => {
+    setSamples([...samples, sample]);
+  };
+
+  const handleSavePattern = (pattern: Pattern) => {
+    setPatterns([...patterns, pattern]);
   };
 
   return (
@@ -334,10 +384,15 @@ function App() {
                 </div>
 
                 {/* Add button */}
-                <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
-                  <i className="fas fa-plus mr-1"></i>
-                  <span className="hidden sm:inline">Добавить</span>
-                </button>
+                {activeSection !== 'dashboard' && (
+                  <button 
+                    onClick={handleAddClick}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+                  >
+                    <i className="fas fa-plus mr-1"></i>
+                    <span className="hidden sm:inline">Добавить</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -348,6 +403,30 @@ function App() {
           {renderSection()}
         </div>
       </div>
+
+      {/* Формы добавления */}
+      <AddYarnForm
+        isOpen={showAddYarn}
+        onClose={() => setShowAddYarn(false)}
+        onSave={handleSaveYarn}
+      />
+      <AddProjectForm
+        isOpen={showAddProject}
+        onClose={() => setShowAddProject(false)}
+        onSave={handleSaveProject}
+        yarns={yarns}
+      />
+      <AddSampleForm
+        isOpen={showAddSample}
+        onClose={() => setShowAddSample(false)}
+        onSave={handleSaveSample}
+        yarns={yarns}
+      />
+      <AddPatternForm
+        isOpen={showAddPattern}
+        onClose={() => setShowAddPattern(false)}
+        onSave={handleSavePattern}
+      />
     </div>
   );
 }
