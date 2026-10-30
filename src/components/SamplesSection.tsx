@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sample, Yarn } from '../types';
 import { formatFoldedMeterage } from '../utils/yarnCalc';
+import Modal from './Modal';
 
 interface Props {
   samples: Sample[];
@@ -106,19 +107,11 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
       )}
 
       {/* Modal */}
-      {selectedSample && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedSample(null)}>
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={!!selectedSample} onClose={() => setSelectedSample(null)}>
+        {selectedSample && (
+          <>
             <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Образец</h2>
-                <button
-                  onClick={() => setSelectedSample(null)}
-                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
-                >
-                  <i className="fas fa-times text-gray-600"></i>
-                </button>
-              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Образец</h2>
 
               {/* Yarns with folds */}
               <div className="mb-4">
@@ -246,9 +239,9 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };

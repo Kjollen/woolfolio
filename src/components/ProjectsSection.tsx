@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import { formatFoldedMeterage } from '../utils/yarnCalc';
+import Modal from './Modal';
 
 interface Props {
   projects: Project[];
@@ -124,15 +125,15 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
       )}
 
       {/* Modal */}
-      {selectedProject && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedProject(null)}>
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={!!selectedProject} onClose={() => setSelectedProject(null)}>
+        {selectedProject && (
+          <>
             {selectedProject.photos.length > 0 && (
               <div className="relative">
                 <img
                   src={selectedProject.photos[0]}
                   alt={selectedProject.name}
-                  className="w-full h-48 object-cover rounded-t-2xl"
+                  className="w-full h-48 object-cover"
                 />
                 {selectedProject.photos.length > 1 && (
                   <div className="absolute bottom-2 left-2 flex gap-1">
@@ -141,12 +142,6 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                     ))}
                   </div>
                 )}
-                <button
-                  onClick={() => setSelectedProject(null)}
-                  className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
-                >
-                  <i className="fas fa-times text-gray-600"></i>
-                </button>
               </div>
             )}
             <div className="p-5">
@@ -232,9 +227,9 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Yarn, Project } from '../types';
 import { calcYarnRemaining, calcYarnConsumed } from '../data/mockData';
+import Modal from './Modal';
 
 interface Props {
   yarns: Yarn[];
@@ -87,17 +88,11 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
       )}
 
       {/* Modal */}
-      {selectedYarn && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedYarn(null)}>
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={!!selectedYarn} onClose={() => setSelectedYarn(null)}>
+        {selectedYarn && (
+          <>
             <div className="relative">
-              <img src={selectedYarn.photo} alt={selectedYarn.name} className="w-full h-48 object-cover rounded-t-2xl" />
-              <button
-                onClick={() => setSelectedYarn(null)}
-                className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
-              >
-                <i className="fas fa-times text-gray-600"></i>
-              </button>
+              <img src={selectedYarn.photo} alt={selectedYarn.name} className="w-full h-48 object-cover" />
             </div>
             <div className="p-5">
               <h2 className="text-xl font-bold text-gray-800">{selectedYarn.name}</h2>
@@ -181,9 +176,9 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };

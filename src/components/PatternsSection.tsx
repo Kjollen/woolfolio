@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pattern } from '../types';
+import Modal from './Modal';
 
 interface Props {
   patterns: Pattern[];
@@ -69,22 +70,16 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
       )}
 
       {/* Modal */}
-      {selectedPattern && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPattern(null)}>
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <Modal isOpen={!!selectedPattern} onClose={() => setSelectedPattern(null)}>
+        {selectedPattern && (
+          <>
             {selectedPattern.photos.length > 0 && (
               <div className="relative">
                 <img
                   src={selectedPattern.photos[0]}
                   alt={selectedPattern.name}
-                  className="w-full h-48 object-cover rounded-t-2xl"
+                  className="w-full h-48 object-cover"
                 />
-                <button
-                  onClick={() => setSelectedPattern(null)}
-                  className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow"
-                >
-                  <i className="fas fa-times text-gray-600"></i>
-                </button>
               </div>
             )}
             <div className="p-5">
@@ -157,9 +152,9 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };
