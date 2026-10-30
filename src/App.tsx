@@ -5,6 +5,7 @@ import YarnSection from './components/YarnSection';
 import ProjectsSection from './components/ProjectsSection';
 import SamplesSection from './components/SamplesSection';
 import PatternsSection from './components/PatternsSection';
+import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 
 const sections: { id: Section; label: string; icon: string }[] = [
   { id: 'yarn', label: 'Пряжа', icon: '🧶' },
@@ -17,6 +18,9 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>('yarn');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Swipe to open sidebar
+  const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
   const renderSection = () => {
     switch (activeSection) {
@@ -89,17 +93,25 @@ function App() {
       </aside>
 
       {/* Mobile Sidebar Overlay */}
-      {mobileMenuOpen && (
+      {(mobileMenuOpen || swipeOffset > 0) && (
         <div 
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
+          style={{ opacity: mobileMenuOpen ? 1 : swipeOffset / 264 }}
           onClick={() => setMobileMenuOpen(false)}
         ></div>
       )}
 
       {/* Mobile Sidebar */}
-      <aside className={`md:hidden fixed top-0 left-0 h-full w-64 bg-white z-50 transform transition-transform duration-300 ${
-        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <aside 
+        className={`md:hidden fixed top-0 left-0 h-full w-64 bg-white z-50 shadow-xl ${
+          mobileMenuOpen ? '' : 'transition-transform duration-300'
+        }`}
+        style={{
+          transform: mobileMenuOpen 
+            ? 'translateX(0)' 
+            : `translateX(${swipeOffset - 264}px)`,
+        }}
+      >
         {/* Logo */}
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -146,7 +158,13 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 md:ml-64">
+      <div className="flex-1 md:ml-64" {...swipeHandlers}>
+        {/* Swipe edge indicator */}
+        <div 
+          className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
+          style={{ opacity: swipeOffset > 0 ? 1 : 0 }}
+        ></div>
+        
         {/* Header */}
         <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
           <div className="px-4 md:px-6">
