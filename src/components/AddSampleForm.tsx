@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sample, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
+import FileUploader from './FileUploader';
 
 interface Props {
   isOpen: boolean;
@@ -143,13 +144,12 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
               <i className="fas fa-tint mr-1"></i> До ВТО
             </h3>
             <div className="space-y-2">
-              <input
-                type="url"
-                name="photoBefore"
+              <FileUploader
                 value={formData.photoBefore}
-                onChange={handleChange}
-                placeholder="URL фото"
-                className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
+                onChange={(value) => setFormData({ ...formData, photoBefore: value })}
+                accept="image/*"
+                label="Фото до ВТО"
+                placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
                 <input
@@ -194,13 +194,12 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
               <i className="fas fa-check-circle mr-1"></i> После ВТО
             </h3>
             <div className="space-y-2">
-              <input
-                type="url"
-                name="photoAfter"
+              <FileUploader
                 value={formData.photoAfter}
-                onChange={handleChange}
-                placeholder="URL фото"
-                className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
+                onChange={(value) => setFormData({ ...formData, photoAfter: value })}
+                accept="image/*"
+                label="Фото после ВТО"
+                placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
                 <input

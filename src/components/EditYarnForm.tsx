@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Yarn } from '../types';
 import Modal from './Modal';
+import FileUploader from './FileUploader';
 
 interface Props {
   isOpen: boolean;
@@ -59,25 +60,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Загрузка фото через вставку из буфера
-  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const items = e.clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const blob = items[i].getAsFile();
-        if (blob) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              setFormData({ ...formData, photo: event.target.result as string });
-            }
-          };
-          reader.readAsDataURL(blob);
-        }
-      }
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -111,33 +93,13 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Фото */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Фото
-            </label>
-            <div className="flex gap-2">
-              {formData.photo && (
-                <img 
-                  src={formData.photo} 
-                  alt="Превью" 
-                  className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
-                />
-              )}
-              <input
-                type="text"
-                name="photo"
-                value={formData.photo.startsWith('data:') ? '[Загружено из буфера]' : formData.photo}
-                onChange={handleChange}
-                onPaste={handlePaste}
-                placeholder="Вставьте URL или Ctrl+V для загрузки из буфера"
-                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
-              />
-            </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              <i className="fas fa-info-circle mr-1"></i>
-              Сделайте скриншот и вставьте через Ctrl+V (Cmd+V на Mac)
-            </p>
-          </div>
+          <FileUploader
+            value={formData.photo}
+            onChange={(value) => setFormData({ ...formData, photo: value })}
+            accept="image/*"
+            label="Фото пряжи"
+            placeholder="Вставьте URL или загрузите фото"
+          />
 
           {/* Название и производитель */}
           <div className="grid grid-cols-2 gap-3">

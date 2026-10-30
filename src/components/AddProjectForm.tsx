@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
+import MultiFileUploader from './MultiFileUploader';
 
 interface Props {
   isOpen: boolean;
@@ -17,8 +18,9 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
     startDate: '',
     endDate: '',
     notes: '',
-    photos: '',
   });
+  
+  const [photos, setPhotos] = useState<string[]>([]);
 
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
@@ -43,10 +45,6 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const photos = formData.photos
-      ? formData.photos.split('\n').map(url => url.trim()).filter(url => url)
-      : [];
     
     const newProject: Project = {
       id: `p_${Date.now()}`,
@@ -213,19 +211,14 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
           </div>
 
           {/* Фото */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Фото (URL, каждое с новой строки)
-            </label>
-            <textarea
-              name="photos"
-              value={formData.photos}
-              onChange={handleChange}
-              rows={3}
-              placeholder="https://...&#10;https://..."
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
-            />
-          </div>
+          <MultiFileUploader
+            values={photos}
+            onChange={setPhotos}
+            accept="image/*"
+            label="Фото проекта"
+            placeholder="Вставьте URL или загрузите фото"
+            maxFiles={5}
+          />
 
           {/* Заметки */}
           <div>
