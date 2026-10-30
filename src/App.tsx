@@ -7,7 +7,7 @@ import SamplesSection from './components/SamplesSection';
 import PatternsSection from './components/PatternsSection';
 
 const sections: { id: Section; label: string; icon: string }[] = [
-  { id: 'yarn', label: 'Пряжа', icon: 'fas fa-yin-yang' },
+  { id: 'yarn', label: 'Пряжа', icon: '🧶' },
   { id: 'projects', label: 'Проекты', icon: 'fas fa-tshirt' },
   { id: 'samples', label: 'Образцы', icon: 'fas fa-th-large' },
   { id: 'patterns', label: 'Схемы', icon: 'fas fa-book-open' },
@@ -47,10 +47,8 @@ function App() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
-                <i className="fas fa-heart text-white text-sm"></i>
-              </div>
-              <h1 className="text-lg font-bold text-gray-800 hidden sm:block">KnitTracker</h1>
+              <img src="/logo.svg" alt="WoolFolio" className="w-8 h-8 rounded-lg" />
+              <h1 className="text-lg font-bold text-gray-800 hidden sm:block">WoolFolio</h1>
             </div>
 
             {/* Search */}
@@ -99,7 +97,11 @@ function App() {
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <i className={`${section.icon} text-xs`}></i>
+              {section.icon.startsWith('fas') ? (
+                <i className={`${section.icon} text-xs`}></i>
+              ) : (
+                <span className="text-sm">{section.icon}</span>
+              )}
               <span>{section.label}</span>
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                 activeSection === section.id ? 'bg-white/20' : 'bg-gray-200 text-gray-500'
@@ -114,30 +116,39 @@ function App() {
         {mobileMenuOpen && (
           <nav className="sm:hidden mb-4 bg-white rounded-xl p-2 shadow-sm border border-gray-100">
             {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => {
-                  setActiveSection(section.id);
-                  setMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                  activeSection === section.id
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
+            <button
+              key={section.id}
+              onClick={() => {
+                setActiveSection(section.id);
+                setMobileMenuOpen(false);
+              }}
+              className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                activeSection === section.id
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {section.icon.startsWith('fas') ? (
                 <i className={`${section.icon} text-xs`}></i>
-                <span>{section.label}</span>
-                <span className="ml-auto text-xs opacity-70">{getCount(section.id)}</span>
-              </button>
-            ))}
+              ) : (
+                <span className="text-sm">{section.icon}</span>
+              )}
+              <span>{section.label}</span>
+              <span className="ml-auto text-xs opacity-70">{getCount(section.id)}</span>
+            </button>            ))}
           </nav>
         )}
 
         {/* Section Title */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <i className={`${sections.find(s => s.id === activeSection)?.icon} text-emerald-500`}></i>
+            {(() => {
+              const icon = sections.find(s => s.id === activeSection)?.icon;
+              if (icon?.startsWith('fas')) {
+                return <i className={`${icon} text-emerald-500`}></i>;
+              }
+              return <span className="text-xl">{icon}</span>;
+            })()}
             {sections.find(s => s.id === activeSection)?.label}
           </h2>
           <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
@@ -161,7 +172,11 @@ function App() {
                 activeSection === section.id ? 'text-emerald-600' : 'text-gray-400'
               }`}
             >
-              <i className={`${section.icon} text-lg`}></i>
+              {section.icon.startsWith('fas') ? (
+                <i className={`${section.icon} text-lg`}></i>
+              ) : (
+                <span className="text-lg">{section.icon}</span>
+              )}
               <span className="text-[10px] font-medium">{section.label}</span>
             </button>
           ))}

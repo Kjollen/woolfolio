@@ -39,7 +39,7 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
             )}
             <div className="p-3">
               <h3 className="font-semibold text-gray-800 text-sm truncate">{pattern.name}</h3>
-              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                 {pattern.photos.length > 0 && (
                   <span>
                     <i className="fas fa-image mr-1"></i>{pattern.photos.length} фото
@@ -48,6 +48,11 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
                 {pattern.pdfs.length > 0 && (
                   <span>
                     <i className="fas fa-file-pdf mr-1 text-red-400"></i>{pattern.pdfs.length} PDF
+                  </span>
+                )}
+                {pattern.link && (
+                  <span className="text-emerald-600">
+                    <i className="fas fa-link mr-1"></i>Ссылка
                   </span>
                 )}
               </div>
@@ -115,6 +120,28 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Link */}
+              {selectedPattern.link && (
+                <div className="mt-4">
+                  <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Ссылка</h3>
+                  <a
+                    href={selectedPattern.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-lg p-3 hover:bg-emerald-100 transition-colors"
+                  >
+                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-external-link-alt text-emerald-600"></i>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-emerald-700 truncate">{selectedPattern.link}</p>
+                      <p className="text-xs text-emerald-500">Открыть в новой вкладке</p>
+                    </div>
+                    <i className="fas fa-arrow-right text-emerald-400"></i>
+                  </a>
                 </div>
               )}
 

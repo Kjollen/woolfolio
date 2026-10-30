@@ -57,6 +57,7 @@ export interface Pattern {
   photos: string[];
   pdfs: string[];
   name: string;
+  link?: string; // ссылка на схему/описание
 }
 
 export type Section = 'yarn' | 'projects' | 'samples' | 'patterns';

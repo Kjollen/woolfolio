@@ -195,6 +195,7 @@ export const mockPatterns: Pattern[] = [
     ],
     pdfs: ['pattern_sweater.pdf', 'scheme_raglan.pdf'],
     name: 'Реглан сверху — базовая схема',
+    link: 'https://www.garnstudio.com/pattern.php?id=10005',
   },
   {
     id: 'pat2',
@@ -203,6 +204,7 @@ export const mockPatterns: Pattern[] = [
     ],
     pdfs: ['shawl_pattern.pdf'],
     name: 'Шаль ажурная "Снежинки"',
+    link: 'https://www.ravelry.com/patterns/library/snowflake-shawl',
   },
   {
     id: 'pat3',
