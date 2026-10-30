@@ -10,6 +10,7 @@ import AddYarnForm from './components/AddYarnForm';
 import AddProjectForm from './components/AddProjectForm';
 import AddSampleForm from './components/AddSampleForm';
 import AddPatternForm from './components/AddPatternForm';
+import EditYarnForm from './components/EditYarnForm';
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -46,6 +47,9 @@ function App() {
   const [showAddSample, setShowAddSample] = useState(false);
   const [showAddPattern, setShowAddPattern] = useState(false);
   
+  // Формы редактирования
+  const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
+  
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
@@ -75,7 +79,7 @@ function App() {
       case 'dashboard':
         return <Dashboard yarns={yarns} projects={projects} samples={samples} patterns={patterns} />;
       case 'yarn':
-        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} />;
+        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} onEdit={setEditingYarn} />;
       case 'projects':
         return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} />;
       case 'samples':
@@ -114,6 +118,10 @@ function App() {
 
   const handleSaveYarn = (yarn: Yarn) => {
     setYarns([...yarns, yarn]);
+  };
+
+  const handleUpdateYarn = (updatedYarn: Yarn) => {
+    setYarns(yarns.map(y => y.id === updatedYarn.id ? updatedYarn : y));
   };
 
   const handleSaveProject = (project: Project) => {
@@ -409,6 +417,14 @@ function App() {
         isOpen={showAddYarn}
         onClose={() => setShowAddYarn(false)}
         onSave={handleSaveYarn}
+      />
+      
+      {/* Форма редактирования */}
+      <EditYarnForm
+        isOpen={!!editingYarn}
+        onClose={() => setEditingYarn(null)}
+        onSave={handleUpdateYarn}
+        yarn={editingYarn}
       />
       <AddProjectForm
         isOpen={showAddProject}

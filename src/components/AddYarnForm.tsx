@@ -18,15 +18,43 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
     color: '',
     totalWeight: '',
     meterage: '',
-    totalMeterage: '',
     shop: '',
     orderNumber: '',
     pricePerGram: '',
     totalPrice: '',
   });
 
+  // Автоматический расчёт общего метража
+  const calculatedTotalMeterage = (() => {
+    const weight = Number(formData.totalWeight);
+    const meterage = Number(formData.meterage);
+    if (weight > 0 && meterage > 0) {
+      return Math.round((weight * meterage) / 100);
+    }
+    return 0;
+  })();
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Загрузка фото через вставку из буфера
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              setFormData({ ...formData, photo: event.target.result as string });
+            }
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -42,7 +70,7 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
       color: formData.color,
       totalWeight: Number(formData.totalWeight) || 0,
       meterage: Number(formData.meterage) || 0,
-      totalMeterage: Number(formData.totalMeterage) || 0,
+      totalMeterage: calculatedTotalMeterage,
       shop: formData.shop,
       orderNumber: formData.orderNumber,
       pricePerGram: Number(formData.pricePerGram) || 0,
@@ -62,16 +90,30 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
           {/* Фото */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              URL фото
+              Фото
             </label>
-            <input
-              type="url"
-              name="photo"
-              value={formData.photo}
-              onChange={handleChange}
-              placeholder="https://..."
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
-            />
+            <div className="flex gap-2">
+              {formData.photo && (
+                <img 
+                  src={formData.photo} 
+                  alt="Превью" 
+                  className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                />
+              )}
+              <input
+                type="text"
+                name="photo"
+                value={formData.photo.startsWith('data:') ? '[Загружено из буфера]' : formData.photo}
+                onChange={handleChange}
+                onPaste={handlePaste}
+                placeholder="Вставьте URL или Ctrl+V для загрузки из буфера"
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <i className="fas fa-info-circle mr-1"></i>
+              Сделайте скриншот и вставьте через Ctrl+V (Cmd+V на Mac)
+            </p>
           </div>
 
           {/* Название и производитель */}
@@ -178,14 +220,9 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Общий метраж (м)
               </label>
-              <input
-                type="number"
-                name="totalMeterage"
-                value={formData.totalMeterage}
-                onChange={handleChange}
-                min="0"
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
-              />
+              <div className="w-full px-3 py-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-700 dark:text-emerald-300 font-medium">
+                {calculatedTotalMeterage > 0 ? calculatedTotalMeterage : '—'}
+              </div>
             </div>
           </div>
 

@@ -7,11 +7,12 @@ interface Props {
   yarns: Yarn[];
   projects: Project[];
   searchQuery: string;
+  onEdit?: (yarn: Yarn) => void;
 }
 
 import FilterBar from './FilterBar';
 
-const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
+const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) => {
   const [selectedYarn, setSelectedYarn] = useState<Yarn | null>(null);
   const [sortBy, setSortBy] = useState('name');
   const [filterByRemaining, setFilterByRemaining] = useState('all');
@@ -107,6 +108,9 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                   <span className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
                     {remaining}г
                   </span>
+                </div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {yarn.meterage} м/100г
                 </div>
                 {/* Progress bar */}
                 <div className="mt-2">
@@ -213,7 +217,10 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
               </div>
 
               <div className="mt-5 flex gap-2">
-                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
+                <button 
+                  onClick={() => onEdit?.(selectedYarn)}
+                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+                >
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button
