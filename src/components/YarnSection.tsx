@@ -9,22 +9,47 @@ interface Props {
   searchQuery: string;
 }
 
+import FilterBar from './FilterBar';
+
 const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
   const [selectedYarn, setSelectedYarn] = useState<Yarn | null>(null);
+  const [sortBy, setSortBy] = useState('name');
+  const [filterByRemaining, setFilterByRemaining] = useState('all');
 
-  const filteredYarns = yarns.filter((yarn) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      yarn.name.toLowerCase().includes(q) ||
-      yarn.manufacturer.toLowerCase().includes(q) ||
-      yarn.article.toLowerCase().includes(q) ||
-      yarn.composition.toLowerCase().includes(q) ||
-      yarn.color.toLowerCase().includes(q) ||
-      yarn.shop.toLowerCase().includes(q) ||
-      yarn.orderNumber.toLowerCase().includes(q)
-    );
-  });
+  const filteredYarns = yarns
+    .filter((yarn) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        yarn.name.toLowerCase().includes(q) ||
+        yarn.manufacturer.toLowerCase().includes(q) ||
+        yarn.article.toLowerCase().includes(q) ||
+        yarn.composition.toLowerCase().includes(q) ||
+        yarn.color.toLowerCase().includes(q) ||
+        yarn.shop.toLowerCase().includes(q) ||
+        yarn.orderNumber.toLowerCase().includes(q)
+      );
+    })
+    .filter((yarn) => {
+      if (filterByRemaining === 'all') return true;
+      const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
+      const percent = (remaining / yarn.totalWeight) * 100;
+      if (filterByRemaining === 'low') return percent < 30;
+      if (filterByRemaining === 'medium') return percent >= 30 && percent < 70;
+      if (filterByRemaining === 'high') return percent >= 70;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'manufacturer') return a.manufacturer.localeCompare(b.manufacturer);
+      if (sortBy === 'remaining') {
+        const remA = calcYarnRemaining(a.id, a.totalWeight, projects);
+        const remB = calcYarnRemaining(b.id, b.totalWeight, projects);
+        return remB - remA;
+      }
+      if (sortBy === 'weight') return b.totalWeight - a.totalWeight;
+      return 0;
+    });
 
   // Список проектов, в которых используется эта пряжа
   const getProjectsUsingYarn = (yarnId: string) =>
@@ -32,6 +57,29 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
 
   return (
     <div>
+      <FilterBar
+        sortOptions={[
+          { value: 'name', label: 'По названию' },
+          { value: 'manufacturer', label: 'По производителю' },
+          { value: 'remaining', label: 'По остатку' },
+          { value: 'weight', label: 'По весу' },
+        ]}
+        currentSort={sortBy}
+        onSortChange={setSortBy}
+        filters={[
+          {
+            label: 'Остаток',
+            options: [
+              { value: 'all', label: 'Все' },
+              { value: 'low', label: 'Мало (<30%)' },
+              { value: 'medium', label: 'Средне (30-70%)' },
+              { value: 'high', label: 'Много (>70%)' },
+            ],
+            value: filterByRemaining,
+            onChange: setFilterByRemaining,
+          },
+        ]}
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredYarns.map((yarn) => {
           const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
@@ -41,10 +89,10 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
           return (
             <div
               key={yarn.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => setSelectedYarn(yarn)}
             >
-              <div className="aspect-square bg-gray-100 overflow-hidden">
+              <div className="aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                 <img
                   src={yarn.photo}
                   alt={yarn.name}
@@ -52,17 +100,17 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                 />
               </div>
               <div className="p-3">
-                <h3 className="font-semibold text-gray-800 text-sm truncate">{yarn.name}</h3>
-                <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.article}</p>
+                <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{yarn.name}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{yarn.manufacturer} • {yarn.article}</p>
                 <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="text-gray-600">{yarn.color}</span>
-                  <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-gray-600 dark:text-gray-300">{yarn.color}</span>
+                  <span className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
                     {remaining}г
                   </span>
                 </div>
                 {/* Progress bar */}
                 <div className="mt-2">
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                     <div
                       className={`h-1.5 rounded-full transition-all ${
                         usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-emerald-400'
@@ -70,7 +118,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
                       style={{ width: `${Math.min(usedPercent, 100)}%` }}
                     ></div>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                     Использовано {consumed}г из {yarn.totalWeight}г
                   </p>
                 </div>
@@ -107,20 +155,20 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery }) => {
               </div>
 
               {/* Остаток */}
-              <div className="mt-4 bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+              <div className="mt-4 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-emerald-600 uppercase tracking-wide font-medium">Остаток</span>
-                  <span className="text-lg font-bold text-emerald-700">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wide font-medium">Остаток</span>
+                  <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
                     {calcYarnRemaining(selectedYarn.id, selectedYarn.totalWeight, projects)} г
                   </span>
                 </div>
-                <div className="w-full bg-emerald-100 rounded-full h-2">
+                <div className="w-full bg-emerald-100 dark:bg-emerald-900 rounded-full h-2">
                   <div
                     className="h-2 rounded-full bg-emerald-500 transition-all"
                     style={{ width: `${100 - (calcYarnConsumed(selectedYarn.id, projects) / selectedYarn.totalWeight) * 100}%` }}
                   ></div>
                 </div>
-                <p className="text-xs text-emerald-400 mt-1">
+                <p className="text-xs text-emerald-400 dark:text-emerald-500 mt-1">
                   Использовано {calcYarnConsumed(selectedYarn.id, projects)}г из {selectedYarn.totalWeight}г
                 </p>
               </div>

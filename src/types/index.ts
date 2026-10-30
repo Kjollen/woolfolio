@@ -60,4 +60,4 @@ export interface Pattern {
   link?: string; // ссылка на схему/описание
 }
 
-export type Section = 'yarn' | 'projects' | 'samples' | 'patterns';
+export type Section = 'dashboard' | 'yarn' | 'projects' | 'samples' | 'patterns';

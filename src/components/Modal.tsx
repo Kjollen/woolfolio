@@ -30,7 +30,7 @@ const Modal: React.FC<Props> = ({ isOpen, onClose, children }) => {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative"
+        className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative"
         onClick={(e) => e.stopPropagation()}
         style={{
           transform: `translateY(${swipeOffset}px)`,
@@ -39,18 +39,18 @@ const Modal: React.FC<Props> = ({ isOpen, onClose, children }) => {
       >
         {/* Swipe indicator */}
         <div
-          className="sticky top-0 flex justify-center pt-2 pb-1 bg-white/80 backdrop-blur-sm z-10 md:hidden"
+          className="sticky top-0 flex justify-center pt-2 pb-1 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm z-10 md:hidden"
           {...swipeHandlers}
         >
-          <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+          <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
         </div>
 
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow z-20"
+          className="absolute top-3 right-3 w-8 h-8 bg-white/90 dark:bg-gray-700/90 rounded-full flex items-center justify-center shadow z-20"
         >
-          <i className="fas fa-times text-gray-600"></i>
+          <i className="fas fa-times text-gray-600 dark:text-gray-300"></i>
         </button>
 
         {children}

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import { formatFoldedMeterage } from '../utils/yarnCalc';
 import Modal from './Modal';
+import PhotoGallery from './PhotoGallery';
+import FilterBar from './FilterBar';
 
 interface Props {
   projects: Project[];
@@ -23,31 +25,66 @@ const stageColors: Record<string, string> = {
 
 const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [sortBy, setSortBy] = useState('name');
+  const [filterByStage, setFilterByStage] = useState('all');
 
   const getProjectYarns = (project: Project): Yarn[] =>
     project.yarnUsages
       .map((u) => yarns.find((y) => y.id === u.yarnId))
       .filter((y): y is Yarn => !!y);
 
-  const filteredProjects = projects.filter((project) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const projectYarns = getProjectYarns(project);
-    return (
-      project.name.toLowerCase().includes(q) ||
-      project.notes.toLowerCase().includes(q) ||
-      stageLabels[project.stage].toLowerCase().includes(q) ||
-      projectYarns.some(
-        (y) =>
-          y.name.toLowerCase().includes(q) ||
-          y.manufacturer.toLowerCase().includes(q) ||
-          y.color.toLowerCase().includes(q)
-      )
-    );
-  });
+  const filteredProjects = projects
+    .filter((project) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      const projectYarns = getProjectYarns(project);
+      return (
+        project.name.toLowerCase().includes(q) ||
+        project.notes.toLowerCase().includes(q) ||
+        stageLabels[project.stage].toLowerCase().includes(q) ||
+        projectYarns.some(
+          (y) =>
+            y.name.toLowerCase().includes(q) ||
+            y.manufacturer.toLowerCase().includes(q) ||
+            y.color.toLowerCase().includes(q)
+        )
+      );
+    })
+    .filter((project) => {
+      if (filterByStage === 'all') return true;
+      return project.stage === filterByStage;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'startDate') return (b.startDate || '').localeCompare(a.startDate || '');
+      if (sortBy === 'stage') return a.stage.localeCompare(b.stage);
+      return 0;
+    });
 
   return (
     <div>
+      <FilterBar
+        sortOptions={[
+          { value: 'name', label: 'По названию' },
+          { value: 'startDate', label: 'По дате' },
+          { value: 'stage', label: 'По стадии' },
+        ]}
+        currentSort={sortBy}
+        onSortChange={setSortBy}
+        filters={[
+          {
+            label: 'Стадия',
+            options: [
+              { value: 'all', label: 'Все' },
+              { value: 'planned', label: 'В планах' },
+              { value: 'in_progress', label: 'В процессе' },
+              { value: 'completed', label: 'Завершено' },
+            ],
+            value: filterByStage,
+            onChange: setFilterByStage,
+          },
+        ]}
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredProjects.map((project) => {
           const projectYarns = getProjectYarns(project);
@@ -129,20 +166,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
         {selectedProject && (
           <>
             {selectedProject.photos.length > 0 && (
-              <div className="relative">
-                <img
-                  src={selectedProject.photos[0]}
-                  alt={selectedProject.name}
-                  className="w-full h-48 object-cover"
-                />
-                {selectedProject.photos.length > 1 && (
-                  <div className="absolute bottom-2 left-2 flex gap-1">
-                    {selectedProject.photos.map((_, i) => (
-                      <div key={i} className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-white' : 'bg-white/50'}`}></div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <PhotoGallery photos={selectedProject.photos} />
             )}
             <div className="p-5">
               <div className="flex items-start justify-between gap-2">
