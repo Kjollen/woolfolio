@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Section } from './types';
-import { mockYarns, mockProjects, mockSamples, mockPatterns } from './data/mockData';
+import { Section, Yarn, Project, Sample, Pattern } from './types';
 import YarnSection from './components/YarnSection';
 import ProjectsSection from './components/ProjectsSection';
 import SamplesSection from './components/SamplesSection';
@@ -16,7 +15,7 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
-import { Yarn, Project, Sample, Pattern } from './types';
+import pb from './lib/pocketbase';
 
 const sections: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Главная', icon: 'fas fa-home' },
@@ -32,14 +31,15 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const mainRef = useRef<HTMLDivElement>(null);
   
   // Данные
-  const [yarns, setYarns] = useState<Yarn[]>(mockYarns);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [samples, setSamples] = useState<Sample[]>(mockSamples);
-  const [patterns, setPatterns] = useState<Pattern[]>(mockPatterns);
+  const [yarns, setYarns] = useState<Yarn[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [patterns, setPatterns] = useState<Pattern[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
   
   // Формы добавления
   const [showAddYarn, setShowAddYarn] = useState(false);
@@ -53,6 +53,34 @@ function App() {
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
+  // Загрузка данных из PocketBase
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const loadData = async () => {
+    setDataLoading(true);
+    try {
+      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+        pb.collection('yarns').getFullList({ sort: '-created' }),
+        pb.collection('projects').getFullList({ sort: '-created' }),
+        pb.collection('samples').getFullList({ sort: '-created' }),
+        pb.collection('patterns').getFullList({ sort: '-created' }),
+      ]);
+      
+      setYarns(yarnsData as any);
+      setProjects(projectsData as any);
+      setSamples(samplesData as any);
+      setPatterns(patternsData as any);
+    } catch (error) {
+      console.error('Ошибка загрузки данных:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
   // Автоскролл наверх при переключении раздела
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -61,8 +89,8 @@ function App() {
     }
   }, [activeSection]);
 
-  // Экран авторизации
-  if (isLoading) {
+  // Экран загрузки
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
@@ -116,24 +144,54 @@ function App() {
     }
   };
 
-  const handleSaveYarn = (yarn: Yarn) => {
-    setYarns([...yarns, yarn]);
+  const handleSaveYarn = async (yarn: Yarn) => {
+    try {
+      const created = await pb.collection('yarns').create(yarn);
+      setYarns([created as any, ...yarns]);
+    } catch (error) {
+      console.error('Ошибка сохранения пряжи:', error);
+      alert('Не удалось сохранить пряжу');
+    }
   };
 
-  const handleUpdateYarn = (updatedYarn: Yarn) => {
-    setYarns(yarns.map(y => y.id === updatedYarn.id ? updatedYarn : y));
+  const handleUpdateYarn = async (updatedYarn: Yarn) => {
+    try {
+      const updated = await pb.collection('yarns').update(updatedYarn.id, updatedYarn);
+      setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
+    } catch (error) {
+      console.error('Ошибка обновления пряжи:', error);
+      alert('Не удалось обновить пряжу');
+    }
   };
 
-  const handleSaveProject = (project: Project) => {
-    setProjects([...projects, project]);
+  const handleSaveProject = async (project: Project) => {
+    try {
+      const created = await pb.collection('projects').create(project);
+      setProjects([created as any, ...projects]);
+    } catch (error) {
+      console.error('Ошибка сохранения проекта:', error);
+      alert('Не удалось сохранить проект');
+    }
   };
 
-  const handleSaveSample = (sample: Sample) => {
-    setSamples([...samples, sample]);
+  const handleSaveSample = async (sample: Sample) => {
+    try {
+      const created = await pb.collection('samples').create(sample);
+      setSamples([created as any, ...samples]);
+    } catch (error) {
+      console.error('Ошибка сохранения образца:', error);
+      alert('Не удалось сохранить образец');
+    }
   };
 
-  const handleSavePattern = (pattern: Pattern) => {
-    setPatterns([...patterns, pattern]);
+  const handleSavePattern = async (pattern: Pattern) => {
+    try {
+      const created = await pb.collection('patterns').create(pattern);
+      setPatterns([created as any, ...patterns]);
+    } catch (error) {
+      console.error('Ошибка сохранения схемы:', error);
+      alert('Не удалось сохранить схему');
+    }
   };
 
   return (
@@ -236,9 +294,9 @@ function App() {
               }`}
             >
               {section.icon.startsWith('fas') ? (
-                <i className={`${section.icon} text-base`}></i>
+                <i className={`${section.icon} text-xs`}></i>
               ) : (
-                <span className="text-base">{section.icon}</span>
+                <span className="text-sm">{section.icon}</span>
               )}
               <span className="flex-1 text-left">{section.label}</span>
               {getCount(section.id) !== null && (
@@ -267,7 +325,7 @@ function App() {
             <div className="flex items-center justify-between h-16">
               {/* Mobile menu button */}
               <button
-                className="md:hidden w-10 h-10 flex items-center justify-center text-gray-600"
+                className="md:hidden w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300"
                 onClick={() => setMobileMenuOpen(true)}
               >
                 <i className="fas fa-bars text-xl"></i>
@@ -299,7 +357,7 @@ function App() {
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <i className="fas fa-times text-sm"></i>
                     </button>
@@ -323,10 +381,10 @@ function App() {
                       <button
                         onClick={() => {
                           exportToJSON({
-                            yarns: mockYarns,
-                            projects: mockProjects,
-                            samples: mockSamples,
-                            patterns: mockPatterns,
+                            yarns,
+                            projects,
+                            samples,
+                            patterns,
                           });
                           setExportMenuOpen(false);
                         }}
@@ -337,7 +395,7 @@ function App() {
                       </button>
                       <button
                         onClick={() => {
-                          exportYarnsToCSV(mockYarns, mockProjects);
+                          exportYarnsToCSV(yarns, projects);
                           setExportMenuOpen(false);
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -347,7 +405,7 @@ function App() {
                       </button>
                       <button
                         onClick={() => {
-                          exportProjectsToCSV(mockProjects, mockYarns);
+                          exportProjectsToCSV(projects, yarns);
                           setExportMenuOpen(false);
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -418,14 +476,6 @@ function App() {
         onClose={() => setShowAddYarn(false)}
         onSave={handleSaveYarn}
       />
-      
-      {/* Форма редактирования */}
-      <EditYarnForm
-        isOpen={!!editingYarn}
-        onClose={() => setEditingYarn(null)}
-        onSave={handleUpdateYarn}
-        yarn={editingYarn}
-      />
       <AddProjectForm
         isOpen={showAddProject}
         onClose={() => setShowAddProject(false)}
@@ -442,6 +492,14 @@ function App() {
         isOpen={showAddPattern}
         onClose={() => setShowAddPattern(false)}
         onSave={handleSavePattern}
+      />
+
+      {/* Форма редактирования */}
+      <EditYarnForm
+        isOpen={!!editingYarn}
+        onClose={() => setEditingYarn(null)}
+        onSave={handleUpdateYarn}
+        yarn={editingYarn}
       />
     </div>
   );

@@ -110,9 +110,9 @@ const AuthScreen: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={4}
+                minLength={8}
                 className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
-                placeholder="Минимум 4 символа"
+                placeholder="Минимум 8 символов"
               />
             </div>
 
@@ -139,11 +139,6 @@ const AuthScreen: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
-            🔒 Данные хранятся локально в браузере.<br />
-            Скоро — подключение к PocketBase.
-          </div>
         </div>
       </div>
     </div>
