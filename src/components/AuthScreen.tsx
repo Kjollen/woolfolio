@@ -33,38 +33,26 @@ const AuthScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Лого */}
         <div className="text-center mb-8">
           <img src="/logo.svg" alt="WoolFolio" className="w-20 h-20 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">WoolFolio</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Учёт вязания</p>
         </div>
 
-        {/* Форма */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
           <div className="flex gap-2 mb-6">
             <button
-              onClick={() => {
-                setIsLogin(true);
-                setError('');
-              }}
+              onClick={() => { setIsLogin(true); setError(''); }}
               className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                isLogin
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                isLogin ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
               }`}
             >
               Вход
             </button>
             <button
-              onClick={() => {
-                setIsLogin(false);
-                setError('');
-              }}
+              onClick={() => { setIsLogin(false); setError(''); }}
               className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                !isLogin
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                !isLogin ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
               }`}
             >
               Регистрация
@@ -74,9 +62,7 @@ const AuthScreen: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Имя
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Имя</label>
                 <input
                   type="text"
                   value={name}
@@ -88,9 +74,7 @@ const AuthScreen: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
               <input
                 type="email"
                 value={email}
@@ -102,9 +86,7 @@ const AuthScreen: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Пароль
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Пароль</label>
               <input
                 type="password"
                 value={password}
@@ -125,18 +107,9 @@ const AuthScreen: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
             >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <i className="fas fa-spinner fa-spin"></i>
-                  Загрузка...
-                </span>
-              ) : isLogin ? (
-                'Войти'
-              ) : (
-                'Зарегистрироваться'
-              )}
+              {isLoading ? 'Загрузка...' : isLogin ? 'Войти' : 'Зарегистрироваться'}
             </button>
           </form>
         </div>

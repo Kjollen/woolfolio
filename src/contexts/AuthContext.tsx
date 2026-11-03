@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('Login attempt:', email);
     setIsLoading(true);
     try {
       const authData = await pb.collection('users').authWithPassword(email, password);

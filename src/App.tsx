@@ -5,11 +5,6 @@ import ProjectsSection from './components/ProjectsSection';
 import SamplesSection from './components/SamplesSection';
 import PatternsSection from './components/PatternsSection';
 import Dashboard from './components/Dashboard';
-import AddYarnForm from './components/AddYarnForm';
-import AddProjectForm from './components/AddProjectForm';
-import AddSampleForm from './components/AddSampleForm';
-import AddPatternForm from './components/AddPatternForm';
-import EditYarnForm from './components/EditYarnForm';
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -29,7 +24,6 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isLoading: authLoading } = useAuth();
   const mainRef = useRef<HTMLDivElement>(null);
@@ -41,16 +35,6 @@ function App() {
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   
-  // Формы добавления
-  const [showAddYarn, setShowAddYarn] = useState(false);
-  const [showAddProject, setShowAddProject] = useState(false);
-  const [showAddSample, setShowAddSample] = useState(false);
-  const [showAddPattern, setShowAddPattern] = useState(false);
-  
-  // Формы редактирования
-  const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
-  
-  // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
   // Загрузка данных из PocketBase
@@ -83,11 +67,10 @@ function App() {
 
   // Автоскролл наверх при переключении раздела
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (mainRef.current) {
-      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    if (user) {
+      loadData();
     }
-  }, [activeSection]);
+  }, [user]);
 
   // Экран загрузки
   if (authLoading || dataLoading) {
@@ -98,16 +81,20 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <AuthScreen />;
-  }
+  const sections: { id: Section; label: string; icon: string }[] = [
+    { id: 'dashboard', label: 'Главная', icon: '📊' },
+    { id: 'yarn', label: 'Пряжа', icon: '🧶' },
+    { id: 'projects', label: 'Проекты', icon: '📋' },
+    { id: 'samples', label: 'Образцы', icon: '📐' },
+    { id: 'patterns', label: 'Схемы', icon: '📖' },
+  ];
 
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard yarns={yarns} projects={projects} samples={samples} patterns={patterns} />;
       case 'yarn':
-        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} onEdit={setEditingYarn} />;
+        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} />;
       case 'projects':
         return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} />;
       case 'samples':
@@ -127,22 +114,13 @@ function App() {
     }
   };
 
-  const handleAddClick = () => {
-    switch (activeSection) {
-      case 'yarn':
-        setShowAddYarn(true);
-        break;
-      case 'projects':
-        setShowAddProject(true);
-        break;
-      case 'samples':
-        setShowAddSample(true);
-        break;
-      case 'patterns':
-        setShowAddPattern(true);
-        break;
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
+      </div>
+    );
+  }
 
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
@@ -196,9 +174,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Sidebar - Desktop */}
+      {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed h-full z-30">
-        {/* Logo */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="WoolFolio" className="w-10 h-10 rounded-lg" />
@@ -206,7 +183,6 @@ function App() {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {sections.map((section) => (
             <button
@@ -235,7 +211,6 @@ function App() {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-700">
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center">
             WoolFolio v1.0<br />
@@ -244,7 +219,6 @@ function App() {
         </div>
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
       {(mobileMenuOpen || swipeOffset > 0) && (
         <div 
           className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
@@ -253,18 +227,14 @@ function App() {
         ></div>
       )}
 
-      {/* Mobile Sidebar */}
       <aside 
         className={`md:hidden fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 z-50 shadow-xl ${
           mobileMenuOpen ? '' : 'transition-transform duration-300'
         }`}
         style={{
-          transform: mobileMenuOpen 
-            ? 'translateX(0)' 
-            : `translateX(${swipeOffset - 264}px)`,
+          transform: mobileMenuOpen ? 'translateX(0)' : `translateX(${swipeOffset - 264}px)`,
         }}
       >
-        {/* Logo */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="WoolFolio" className="w-10 h-10 rounded-lg" />
@@ -278,7 +248,6 @@ function App() {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="p-4 space-y-1">
           {sections.map((section) => (
             <button
@@ -311,19 +280,15 @@ function App() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <div ref={mainRef} className="flex-1 md:ml-64" {...swipeHandlers}>
-        {/* Swipe edge indicator */}
         <div 
           className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
           style={{ opacity: swipeOffset > 0 ? 1 : 0 }}
         ></div>
         
-        {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
           <div className="px-4 md:px-6">
             <div className="flex items-center justify-between h-16">
-              {/* Mobile menu button */}
               <button
                 className="md:hidden w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300"
                 onClick={() => setMobileMenuOpen(true)}
@@ -331,7 +296,6 @@ function App() {
                 <i className="fas fa-bars text-xl"></i>
               </button>
 
-              {/* Section Title */}
               <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 {(() => {
                   const icon = sections.find(s => s.id === activeSection)?.icon;
@@ -343,7 +307,6 @@ function App() {
                 <span className="hidden sm:inline">{sections.find(s => s.id === activeSection)?.label}</span>
               </h2>
 
-              {/* Search */}
               <div className="flex-1 max-w-md mx-4">
                 <div className="relative">
                   <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm"></i>
@@ -365,7 +328,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex items-center gap-2">
                 {/* Export button */}
                 <div className="relative">
@@ -421,12 +383,10 @@ function App() {
                 <button
                   onClick={toggleTheme}
                   className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                  title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
                 >
                   <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
                 </button>
 
-                {/* User menu */}
                 <div className="relative group">
                   <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-medium text-sm">
@@ -448,23 +408,11 @@ function App() {
                     </button>
                   </div>
                 </div>
-
-                {/* Add button */}
-                {activeSection !== 'dashboard' && (
-                  <button 
-                    onClick={handleAddClick}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-                  >
-                    <i className="fas fa-plus mr-1"></i>
-                    <span className="hidden sm:inline">Добавить</span>
-                  </button>
-                )}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Content */}
         <div className="p-4 md:p-6">
           {renderSection()}
         </div>
