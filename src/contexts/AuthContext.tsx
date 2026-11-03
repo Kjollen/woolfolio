@@ -39,7 +39,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    console.log('Login attempt:', email);
     setIsLoading(true);
     try {
       const authData = await pb.collection('users').authWithPassword(email, password);
@@ -69,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name,
       };
       const createdUser = await pb.collection('users').create(data);
-      
+
       // Автоматический вход после регистрации
       const authData = await pb.collection('users').authWithPassword(email, password);
       const authUser = authData.record;
