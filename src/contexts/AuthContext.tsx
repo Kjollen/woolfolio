@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         passwordConfirm: password,
         name,
       };
-      console.log('Creating user with data:', data);
+      console.log('Creating user with ', data);
       const createdUser = await pb.collection('users').create(data);
       console.log('User created:', createdUser);
       
