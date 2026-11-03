@@ -44,19 +44,23 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newProject: Project = {
-      id: `p_${Date.now()}`,
-      photos,
-      name: formData.name,
-      stage: formData.stage,
-      yarnUsages,
-      needleSize: Number(formData.needleSize) || 0,
-      startDate: formData.startDate,
-      endDate: formData.endDate,
-      notes: formData.notes,
-    };
+  e.preventDefault();
+  
+  const newProject = {
+    // Убираем id
+    photos,
+    name: formData.name,
+    stage: formData.stage,
+    yarnUsages,
+    needleSize: Number(formData.needleSize) || 0,
+    startDate: formData.startDate,
+    endDate: formData.endDate,
+    notes: formData.notes,
+  };
+  
+  onSave(newProject as any);
+  onClose();
+};
     
     onSave(newProject);
     onClose();
