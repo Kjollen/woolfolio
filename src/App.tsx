@@ -1,5 +1,4 @@
-cat > src/App.tsx << 'EOF'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Section, Yarn, Project, Sample, Pattern } from './types';
 import YarnSection from './components/YarnSection';
 import ProjectsSection from './components/ProjectsSection';
@@ -18,6 +17,7 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isLoading } = useAuth();
+  const mainRef = useRef<HTMLDivElement>(null);
   
   const [yarns, setYarns] = useState<Yarn[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -26,7 +26,6 @@ function App() {
   
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
-  // Загрузка данных из PocketBase
   useEffect(() => {
     if (user) {
       loadData();
@@ -47,7 +46,7 @@ function App() {
       setSamples(samplesData as any);
       setPatterns(patternsData as any);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading ', error);
     }
   };
 
@@ -143,7 +142,6 @@ function App() {
         </div>
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
       {(mobileMenuOpen || swipeOffset > 0) && (
         <div 
           className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
@@ -152,15 +150,12 @@ function App() {
         ></div>
       )}
 
-      {/* Mobile Sidebar */}
       <aside 
         className={`md:hidden fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 z-50 shadow-xl ${
           mobileMenuOpen ? '' : 'transition-transform duration-300'
         }`}
         style={{
-          transform: mobileMenuOpen 
-            ? 'translateX(0)' 
-            : `translateX(${swipeOffset - 264}px)`,
+          transform: mobileMenuOpen ? 'translateX(0)' : `translateX(${swipeOffset - 264}px)`,
         }}
       >
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
@@ -208,7 +203,6 @@ function App() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <div ref={mainRef} className="flex-1 md:ml-64" {...swipeHandlers}>
         <div 
           className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
@@ -261,7 +255,6 @@ function App() {
                 <button
                   onClick={toggleTheme}
                   className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                  title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
                 >
                   <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
                 </button>
@@ -287,13 +280,6 @@ function App() {
                     </button>
                   </div>
                 </div>
-
-                {activeSection !== 'dashboard' && (
-                  <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
-                    <i className="fas fa-plus mr-1"></i>
-                    <span className="hidden sm:inline">Добавить</span>
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -316,4 +302,3 @@ const AppWithProviders = () => (
 );
 
 export default AppWithProviders;
-EOF
