@@ -23,15 +23,19 @@ const AddPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newPattern: Pattern = {
-      id: `pat_${Date.now()}`,
-      name: formData.name,
-      photos,
-      pdfs,
-      link: formData.link,
-    };
+  e.preventDefault();
+  
+  const newPattern = {
+    // Убираем id
+    name: formData.name,
+    photos,
+    pdfs,
+    link: formData.link,
+  };
+  
+  onSave(newPattern as any);
+  onClose();
+};
     
     onSave(newPattern);
     onClose();
