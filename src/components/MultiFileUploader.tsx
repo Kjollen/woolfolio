@@ -12,7 +12,7 @@ interface Props {
 const MultiFileUploader: React.FC<Props> = ({
   values,
   onChange,
-  accept = 'image/*',
+  accept = 'image/*,.pdf,application/pdf',
   label = 'Файлы',
   placeholder = 'Вставьте URL или загрузите файлы',
   maxFiles = 10,
