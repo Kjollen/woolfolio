@@ -61,10 +61,6 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
   onSave(newProject as any);
   onClose();
 };
-    
-    onSave(newProject);
-    onClose();
-  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
