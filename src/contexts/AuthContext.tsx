@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import pb from '../lib/pocketbase';
 
 export interface User {
   id: string;
@@ -17,104 +18,89 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Простое хранилище пользователей в localStorage (мок, пока нет PocketBase)
-interface StoredUser {
-  id: string;
-  email: string;
-  password: string; // в реальности хешируется, но для мока оставим
-  name: string;
-  createdAt: string;
-}
-
-const USERS_KEY = 'woolfolio-users';
-const CURRENT_USER_KEY = 'woolfolio-current-user';
-
-const getUsers = (): StoredUser[] => {
-  const data = localStorage.getItem(USERS_KEY);
-  return data ? JSON.parse(data) : [];
-};
-
-const saveUsers = (users: StoredUser[]) => {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Восстановление сессии
   useEffect(() => {
-    const savedUser = localStorage.getItem(CURRENT_USER_KEY);
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    console.log('AuthProvider: checking auth state');
+    if (pb.authStore.isValid) {
+      const authUser = pb.authStore.model;
+      console.log('AuthProvider: user found', authUser);
+      if (authUser) {
+        setUser({
+          id: authUser.id,
+          email: authUser.email,
+          name: authUser.name || authUser.email,
+          createdAt: authUser.created,
+        });
+      }
+    } else {
+      console.log('AuthProvider: no valid auth');
     }
     setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('Login attempt:', email);
     setIsLoading(true);
-    // Имитация задержки сети
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    const users = getUsers();
-    const found = users.find((u) => u.email === email && u.password === password);
-    
-    if (found) {
-      const userData: User = {
-        id: found.id,
-        email: found.email,
-        name: found.name,
-        createdAt: found.createdAt,
-      };
-      setUser(userData);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+    try {
+      const authData = await pb.collection('users').authWithPassword(email, password);
+      console.log('Login success:', authData.record);
+      const authUser = authData.record;
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.name || authUser.email,
+        createdAt: authUser.created,
+      });
       setIsLoading(false);
       return true;
-    }
-    
-    setIsLoading(false);
-    return false;
-  };
-
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    const users = getUsers();
-    
-    // Проверка на существование
-    if (users.some((u) => u.email === email)) {
+    } catch (error: any) {
+      console.error('Login error:', error);
       setIsLoading(false);
       return false;
     }
-    
-    const newUser: StoredUser = {
-      id: `user_${Date.now()}`,
-      email,
-      password,
-      name,
-      createdAt: new Date().toISOString(),
-    };
-    
-    users.push(newUser);
-    saveUsers(users);
-    
-    const userData: User = {
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      createdAt: newUser.createdAt,
-    };
-    
-    setUser(userData);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
-    setIsLoading(false);
-    return true;
+  };
+
+  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+    console.log('Register attempt:', { email, name });
+    setIsLoading(true);
+    try {
+      const data = {
+        email,
+        password,
+        passwordConfirm: password,
+        name,
+      };
+      console.log('Creating user with data:', data);
+      const createdUser = await pb.collection('users').create(data);
+      console.log('User created:', createdUser);
+      
+      console.log('Attempting auto-login...');
+      const authData = await pb.collection('users').authWithPassword(email, password);
+      console.log('Auto-login success:', authData.record);
+      const authUser = authData.record;
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.name || authUser.email,
+        createdAt: authUser.created,
+      });
+      setIsLoading(false);
+      return true;
+    } catch (error: any) {
+      console.error('Register error:', error);
+      console.error('Error details:', error.response || error.message);
+      setIsLoading(false);
+      return false;
+    }
   };
 
   const logout = () => {
+    console.log('Logout');
+    pb.authStore.clear();
     setUser(null);
-    localStorage.removeItem(CURRENT_USER_KEY);
   };
 
   return (
