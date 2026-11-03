@@ -47,23 +47,27 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newSample: Sample = {
-      id: `s_${Date.now()}`,
-      yarnUsages,
-      needleSize: Number(formData.needleSize) || 0,
-      photoBefore: formData.photoBefore,
-      stitchesWidthBefore: Number(formData.stitchesWidthBefore) || 0,
-      rowsHeightBefore: Number(formData.rowsHeightBefore) || 0,
-      measurementWidthBefore: Number(formData.measurementWidthBefore) || 10,
-      measurementHeightBefore: Number(formData.measurementHeightBefore) || 10,
-      photoAfter: formData.photoAfter,
-      stitchesWidthAfter: Number(formData.stitchesWidthAfter) || 0,
-      rowsHeightAfter: Number(formData.rowsHeightAfter) || 0,
-      measurementWidthAfter: Number(formData.measurementWidthAfter) || 10,
-      measurementHeightAfter: Number(formData.measurementHeightAfter) || 10,
-    };
+  e.preventDefault();
+  
+  const newSample = {
+    // Убираем id
+    yarnUsages,
+    needleSize: Number(formData.needleSize) || 0,
+    photoBefore: formData.photoBefore,
+    stitchesWidthBefore: Number(formData.stitchesWidthBefore) || 0,
+    rowsHeightBefore: Number(formData.rowsHeightBefore) || 0,
+    measurementWidthBefore: Number(formData.measurementWidthBefore) || 10,
+    measurementHeightBefore: Number(formData.measurementHeightBefore) || 10,
+    photoAfter: formData.photoAfter,
+    stitchesWidthAfter: Number(formData.stitchesWidthAfter) || 0,
+    rowsHeightAfter: Number(formData.rowsHeightAfter) || 0,
+    measurementWidthAfter: Number(formData.measurementWidthAfter) || 10,
+    measurementHeightAfter: Number(formData.measurementHeightAfter) || 10,
+  };
+  
+  onSave(newSample as any);
+  onClose();
+};
     
     onSave(newSample);
     onClose();
