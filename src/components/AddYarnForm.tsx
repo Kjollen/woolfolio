@@ -62,10 +62,6 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   onSave(newYarn as any);
   onClose();
 };
-    
-    onSave(newYarn);
-    onClose();
-  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
