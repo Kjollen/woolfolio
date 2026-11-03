@@ -36,10 +36,6 @@ const AddPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   onSave(newPattern as any);
   onClose();
 };
-    
-    onSave(newPattern);
-    onClose();
-  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
