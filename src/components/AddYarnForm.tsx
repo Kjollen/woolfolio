@@ -40,24 +40,28 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newYarn: Yarn = {
-      id: `y_${Date.now()}`,
-      photo: formData.photo || 'https://images.unsplash.com/photo-1582719508461-905c6737f1fd?w=300&h=300&fit=crop',
-      name: formData.name,
-      manufacturer: formData.manufacturer,
-      article: formData.article,
-      composition: formData.composition,
-      color: formData.color,
-      totalWeight: Number(formData.totalWeight) || 0,
-      meterage: Number(formData.meterage) || 0,
-      totalMeterage: calculatedTotalMeterage,
-      shop: formData.shop,
-      orderNumber: formData.orderNumber,
-      pricePerGram: Number(formData.pricePerGram) || 0,
-      totalPrice: Number(formData.totalPrice) || 0,
-    };
+  e.preventDefault();
+  
+  const newYarn = {
+    // Убираем id - PocketBase создаст его сам
+    photo: formData.photo || 'https://images.unsplash.com/photo-1582719508461-905c6737f1fd?w=300&h=300&fit=crop',
+    name: formData.name,
+    manufacturer: formData.manufacturer,
+    article: formData.article,
+    composition: formData.composition,
+    color: formData.color,
+    totalWeight: Number(formData.totalWeight) || 0,
+    meterage: Number(formData.meterage) || 0,
+    totalMeterage: calculatedTotalMeterage,
+    shop: formData.shop,
+    orderNumber: formData.orderNumber,
+    pricePerGram: Number(formData.pricePerGram) || 0,
+    totalPrice: Number(formData.totalPrice) || 0,
+  };
+  
+  onSave(newYarn as any);
+  onClose();
+};
     
     onSave(newYarn);
     onClose();
