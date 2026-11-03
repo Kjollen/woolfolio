@@ -1,85 +1,70 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Section } from './types';
-import { mockYarns, mockProjects, mockSamples, mockPatterns } from './data/mockData';
+cat > src/App.tsx << 'EOF'
+import React, { useState, useEffect } from 'react';
+import { Section, Yarn, Project, Sample, Pattern } from './types';
 import YarnSection from './components/YarnSection';
 import ProjectsSection from './components/ProjectsSection';
 import SamplesSection from './components/SamplesSection';
 import PatternsSection from './components/PatternsSection';
 import Dashboard from './components/Dashboard';
-import AddYarnForm from './components/AddYarnForm';
-import AddProjectForm from './components/AddProjectForm';
-import AddSampleForm from './components/AddSampleForm';
-import AddPatternForm from './components/AddPatternForm';
-import EditYarnForm from './components/EditYarnForm';
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
-import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
-import { Yarn, Project, Sample, Pattern } from './types';
-
-const sections: { id: Section; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Главная', icon: 'fas fa-home' },
-  { id: 'yarn', label: 'Пряжа', icon: '🧶' },
-  { id: 'projects', label: 'Проекты', icon: 'fas fa-tshirt' },
-  { id: 'samples', label: 'Образцы', icon: 'fas fa-th-large' },
-  { id: 'patterns', label: 'Схемы', icon: 'fas fa-book-open' },
-];
+import pb from './lib/pocketbase';
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isLoading } = useAuth();
-  const mainRef = useRef<HTMLDivElement>(null);
   
-  // Данные
-  const [yarns, setYarns] = useState<Yarn[]>(mockYarns);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [samples, setSamples] = useState<Sample[]>(mockSamples);
-  const [patterns, setPatterns] = useState<Pattern[]>(mockPatterns);
+  const [yarns, setYarns] = useState<Yarn[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [patterns, setPatterns] = useState<Pattern[]>([]);
   
-  // Формы добавления
-  const [showAddYarn, setShowAddYarn] = useState(false);
-  const [showAddProject, setShowAddProject] = useState(false);
-  const [showAddSample, setShowAddSample] = useState(false);
-  const [showAddPattern, setShowAddPattern] = useState(false);
-  
-  // Формы редактирования
-  const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
-  
-  // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
-  // Автоскролл наверх при переключении раздела
+  // Загрузка данных из PocketBase
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (mainRef.current) {
-      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    if (user) {
+      loadData();
     }
-  }, [activeSection]);
+  }, [user]);
 
-  // Экран авторизации
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
-      </div>
-    );
-  }
+  const loadData = async () => {
+    try {
+      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+        pb.collection('yarns').getFullList(),
+        pb.collection('projects').getFullList(),
+        pb.collection('samples').getFullList(),
+        pb.collection('patterns').getFullList(),
+      ]);
+      
+      setYarns(yarnsData as any);
+      setProjects(projectsData as any);
+      setSamples(samplesData as any);
+      setPatterns(patternsData as any);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
 
-  if (!user) {
-    return <AuthScreen />;
-  }
+  const sections: { id: Section; label: string; icon: string }[] = [
+    { id: 'dashboard', label: 'Главная', icon: '📊' },
+    { id: 'yarn', label: 'Пряжа', icon: '🧶' },
+    { id: 'projects', label: 'Проекты', icon: '📋' },
+    { id: 'samples', label: 'Образцы', icon: '📐' },
+    { id: 'patterns', label: 'Схемы', icon: '📖' },
+  ];
 
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard yarns={yarns} projects={projects} samples={samples} patterns={patterns} />;
       case 'yarn':
-        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} onEdit={setEditingYarn} />;
+        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} />;
       case 'projects':
         return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} />;
       case 'samples':
@@ -99,48 +84,22 @@ function App() {
     }
   };
 
-  const handleAddClick = () => {
-    switch (activeSection) {
-      case 'yarn':
-        setShowAddYarn(true);
-        break;
-      case 'projects':
-        setShowAddProject(true);
-        break;
-      case 'samples':
-        setShowAddSample(true);
-        break;
-      case 'patterns':
-        setShowAddPattern(true);
-        break;
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
+      </div>
+    );
+  }
 
-  const handleSaveYarn = (yarn: Yarn) => {
-    setYarns([...yarns, yarn]);
-  };
-
-  const handleUpdateYarn = (updatedYarn: Yarn) => {
-    setYarns(yarns.map(y => y.id === updatedYarn.id ? updatedYarn : y));
-  };
-
-  const handleSaveProject = (project: Project) => {
-    setProjects([...projects, project]);
-  };
-
-  const handleSaveSample = (sample: Sample) => {
-    setSamples([...samples, sample]);
-  };
-
-  const handleSavePattern = (pattern: Pattern) => {
-    setPatterns([...patterns, pattern]);
-  };
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Sidebar - Desktop */}
+      {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed h-full z-30">
-        {/* Logo */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="WoolFolio" className="w-10 h-10 rounded-lg" />
@@ -148,7 +107,6 @@ function App() {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {sections.map((section) => (
             <button
@@ -177,7 +135,6 @@ function App() {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-700">
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center">
             WoolFolio v1.0<br />
@@ -206,7 +163,6 @@ function App() {
             : `translateX(${swipeOffset - 264}px)`,
         }}
       >
-        {/* Logo */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="WoolFolio" className="w-10 h-10 rounded-lg" />
@@ -220,7 +176,6 @@ function App() {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="p-4 space-y-1">
           {sections.map((section) => (
             <button
@@ -236,9 +191,9 @@ function App() {
               }`}
             >
               {section.icon.startsWith('fas') ? (
-                <i className={`${section.icon} text-base`}></i>
+                <i className={`${section.icon} text-xs`}></i>
               ) : (
-                <span className="text-base">{section.icon}</span>
+                <span className="text-sm">{section.icon}</span>
               )}
               <span className="flex-1 text-left">{section.label}</span>
               {getCount(section.id) !== null && (
@@ -255,25 +210,21 @@ function App() {
 
       {/* Main Content */}
       <div ref={mainRef} className="flex-1 md:ml-64" {...swipeHandlers}>
-        {/* Swipe edge indicator */}
         <div 
           className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
           style={{ opacity: swipeOffset > 0 ? 1 : 0 }}
         ></div>
         
-        {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
           <div className="px-4 md:px-6">
             <div className="flex items-center justify-between h-16">
-              {/* Mobile menu button */}
               <button
-                className="md:hidden w-10 h-10 flex items-center justify-center text-gray-600"
+                className="md:hidden w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300"
                 onClick={() => setMobileMenuOpen(true)}
               >
                 <i className="fas fa-bars text-xl"></i>
               </button>
 
-              {/* Section Title */}
               <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 {(() => {
                   const icon = sections.find(s => s.id === activeSection)?.icon;
@@ -285,7 +236,6 @@ function App() {
                 <span className="hidden sm:inline">{sections.find(s => s.id === activeSection)?.label}</span>
               </h2>
 
-              {/* Search */}
               <div className="flex-1 max-w-md mx-4">
                 <div className="relative">
                   <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm"></i>
@@ -299,7 +249,7 @@ function App() {
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <i className="fas fa-times text-sm"></i>
                     </button>
@@ -307,59 +257,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex items-center gap-2">
-                {/* Export button */}
-                <div className="relative">
-                  <button
-                    onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                    className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Экспорт данных"
-                  >
-                    <i className="fas fa-download"></i>
-                  </button>
-                  {exportMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                      <button
-                        onClick={() => {
-                          exportToJSON({
-                            yarns: mockYarns,
-                            projects: mockProjects,
-                            samples: mockSamples,
-                            patterns: mockPatterns,
-                          });
-                          setExportMenuOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <i className="fas fa-file-code mr-2 text-emerald-500"></i>
-                        Полный бэкап (JSON)
-                      </button>
-                      <button
-                        onClick={() => {
-                          exportYarnsToCSV(mockYarns, mockProjects);
-                          setExportMenuOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <i className="fas fa-file-csv mr-2 text-emerald-500"></i>
-                        Пряжа (CSV)
-                      </button>
-                      <button
-                        onClick={() => {
-                          exportProjectsToCSV(mockProjects, mockYarns);
-                          setExportMenuOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <i className="fas fa-file-csv mr-2 text-emerald-500"></i>
-                        Проекты (CSV)
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Theme toggle */}
                 <button
                   onClick={toggleTheme}
                   className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -368,7 +266,6 @@ function App() {
                   <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
                 </button>
 
-                {/* User menu */}
                 <div className="relative group">
                   <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-medium text-sm">
@@ -391,12 +288,8 @@ function App() {
                   </div>
                 </div>
 
-                {/* Add button */}
                 {activeSection !== 'dashboard' && (
-                  <button 
-                    onClick={handleAddClick}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-                  >
+                  <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
                     <i className="fas fa-plus mr-1"></i>
                     <span className="hidden sm:inline">Добавить</span>
                   </button>
@@ -406,43 +299,10 @@ function App() {
           </div>
         </header>
 
-        {/* Content */}
         <div className="p-4 md:p-6">
           {renderSection()}
         </div>
       </div>
-
-      {/* Формы добавления */}
-      <AddYarnForm
-        isOpen={showAddYarn}
-        onClose={() => setShowAddYarn(false)}
-        onSave={handleSaveYarn}
-      />
-      
-      {/* Форма редактирования */}
-      <EditYarnForm
-        isOpen={!!editingYarn}
-        onClose={() => setEditingYarn(null)}
-        onSave={handleUpdateYarn}
-        yarn={editingYarn}
-      />
-      <AddProjectForm
-        isOpen={showAddProject}
-        onClose={() => setShowAddProject(false)}
-        onSave={handleSaveProject}
-        yarns={yarns}
-      />
-      <AddSampleForm
-        isOpen={showAddSample}
-        onClose={() => setShowAddSample(false)}
-        onSave={handleSaveSample}
-        yarns={yarns}
-      />
-      <AddPatternForm
-        isOpen={showAddPattern}
-        onClose={() => setShowAddPattern(false)}
-        onSave={handleSavePattern}
-      />
     </div>
   );
 }
@@ -456,3 +316,4 @@ const AppWithProviders = () => (
 );
 
 export default AppWithProviders;
+EOF
