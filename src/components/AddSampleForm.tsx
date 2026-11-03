@@ -68,10 +68,6 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
   onSave(newSample as any);
   onClose();
 };
-    
-    onSave(newSample);
-    onClose();
-  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
