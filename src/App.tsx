@@ -148,6 +148,7 @@ function App() {
     try {
       const created = await pb.collection('yarns').create(yarn);
       setYarns([created as any, ...yarns]);
+      setShowAddYarn(false);
     } catch (error) {
       console.error('Ошибка сохранения пряжи:', error);
       alert('Не удалось сохранить пряжу');
@@ -158,6 +159,7 @@ function App() {
     try {
       const updated = await pb.collection('yarns').update(updatedYarn.id, updatedYarn);
       setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
+      setEditingYarn(null);
     } catch (error) {
       console.error('Ошибка обновления пряжи:', error);
       alert('Не удалось обновить пряжу');
@@ -168,6 +170,7 @@ function App() {
     try {
       const created = await pb.collection('projects').create(project);
       setProjects([created as any, ...projects]);
+      setShowAddProject(false);
     } catch (error) {
       console.error('Ошибка сохранения проекта:', error);
       alert('Не удалось сохранить проект');
@@ -178,6 +181,7 @@ function App() {
     try {
       const created = await pb.collection('samples').create(sample);
       setSamples([created as any, ...samples]);
+      setShowAddSample(false);
     } catch (error) {
       console.error('Ошибка сохранения образца:', error);
       alert('Не удалось сохранить образец');
@@ -188,6 +192,7 @@ function App() {
     try {
       const created = await pb.collection('patterns').create(pattern);
       setPatterns([created as any, ...patterns]);
+      setShowAddPattern(false);
     } catch (error) {
       console.error('Ошибка сохранения схемы:', error);
       alert('Не удалось сохранить схему');
@@ -312,7 +317,7 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <div ref={mainRef} className="flex-1 md:ml-64" {...swipeHandlers}>
+      <div ref={mainRef} className="flex-1 md:ml-64 w-full" {...swipeHandlers}>
         {/* Swipe edge indicator */}
         <div
           className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
