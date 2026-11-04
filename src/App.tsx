@@ -115,11 +115,11 @@ function App() {
       case 'yarn':
         return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} onEdit={setEditingYarn} />;
       case 'projects':
-        return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} />;
+        return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} onProjectUpdate={handleUpdateProject} />;
       case 'samples':
-        return <SamplesSection samples={samples} yarns={yarns} searchQuery={searchQuery} />;
+        return <SamplesSection samples={samples} yarns={yarns} searchQuery={searchQuery} onSampleUpdate={handleUpdateSample} />;
       case 'patterns':
-        return <PatternsSection patterns={patterns} searchQuery={searchQuery} />;
+        return <PatternsSection patterns={patterns} searchQuery={searchQuery} onPatternUpdate={handleUpdatePattern} />;
     }
   };
 
