@@ -172,6 +172,40 @@ function App() {
     }
   };
 
+  const handleUpdateSample = async (updatedSample: Sample) => {
+  try {
+    await pb.collection('samples').update(updatedSample.id, updatedSample);
+    // Обновляем локальный список
+    setSamples(samples.map(s => s.id === updatedSample.id ? updatedSample : s));
+    setEditingSample(null);
+  } catch (error) {
+    console.error('Ошибка обновления образца:', error);
+    alert('Не удалось сохранить изменения');
+  }
+};
+
+const handleUpdatePattern = async (updatedPattern: Pattern) => {
+  try {
+    await pb.collection('patterns').update(updatedPattern.id, updatedPattern);
+    setPatterns(patterns.map(p => p.id === updatedPattern.id ? updatedPattern : p));
+    setEditingPattern(null);
+  } catch (error) {
+    console.error('Ошибка обновления схемы:', error);
+    alert('Не удалось сохранить изменения');
+  }
+};
+
+const handleUpdateProject = async (updatedProject: Project) => {
+  try {
+    await pb.collection('projects').update(updatedProject.id, updatedProject);
+    setProjects(projects.map(p => p.id === updatedProject.id ? updatedProject : p));
+    setEditingProject(null);
+  } catch (error) {
+    console.error('Ошибка обновления проекта:', error);
+    alert('Не удалось сохранить изменения');
+  }
+};
+
   const handleSaveProject = async (project: Project) => {
     try {
       const created = await pb.collection('projects').create(project);
