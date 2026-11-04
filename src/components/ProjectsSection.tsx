@@ -4,11 +4,13 @@ import { formatFoldedMeterage } from '../utils/yarnCalc';
 import Modal from './Modal';
 import PhotoGallery from './PhotoGallery';
 import FilterBar from './FilterBar';
+import EditProjectForm from './EditProjectForm'; // <--- 1. Импортируем форму
 
 interface Props {
   projects: Project[];
   yarns: Yarn[];
   searchQuery: string;
+  onProjectUpdate: (project: Project) => void; // <--- 2. Добавляем пропс для обновления
 }
 
 const stageLabels: Record<string, string> = {
@@ -23,11 +25,13 @@ const stageColors: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
 };
 
-const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
+const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProjectUpdate }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null); // <--- 3. Состояние редактирования
   const [sortBy, setSortBy] = useState('name');
   const [filterByStage, setFilterByStage] = useState('all');
 
+  // ... (getProjectYarns и filteredProjects остаются без изменений) ...
   const getProjectYarns = (project: Project): Yarn[] =>
     project.yarnUsages
       .map((u) => yarns.find((y) => y.id === u.yarnId))
@@ -61,6 +65,12 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
       return 0;
     });
 
+  // <--- 4. Обработчик сохранения
+  const handleEditProject = (updatedProject: Project) => {
+    onProjectUpdate(updatedProject);
+    setEditingProject(null); // Закрываем форму после сохранения
+  };
+
   return (
     <div>
       <FilterBar
@@ -70,7 +80,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
           { value: 'stage', label: 'По стадии' },
         ]}
         currentSort={sortBy}
-        onSortChange={setSortBy}
+        onChange={setSortBy}
         filters={[
           {
             label: 'Стадия',
@@ -85,7 +95,9 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
           },
         ]}
       />
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* ... (здесь твой код маппинга карточек filteredProjects.map, он не изменился) ... */}
         {filteredProjects.map((project) => {
           const projectYarns = getProjectYarns(project);
           return (
@@ -94,13 +106,10 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
               className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => setSelectedProject(project)}
             >
+              {/* ... карточка проекта ... */}
               {project.photos.length > 0 ? (
                 <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
-                  <img
-                    src={project.photos[0]}
-                    alt={project.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={project.photos[0]} alt={project.name} className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
@@ -161,7 +170,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal просмотра */}
       <Modal isOpen={!!selectedProject} onClose={() => setSelectedProject(null)}>
         {selectedProject && (
           <>
@@ -175,8 +184,8 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                   {stageLabels[selectedProject.stage]}
                 </span>
               </div>
-
-              {/* Yarns with folds and consumption */}
+              
+              {/* ... (здесь твой код отображения пряжи, толщины, дат и заметок - он не изменился) ... */}
               <div className="mt-4">
                 <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа и сложения</h3>
                 <div className="space-y-2">
@@ -212,7 +221,6 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                 </div>
               </div>
 
-              {/* Calculated thickness */}
               <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-calculator text-indigo-500"></i>
@@ -220,9 +228,6 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                 </div>
                 <p className="text-lg font-bold text-indigo-700 mt-1">
                   {formatFoldedMeterage(selectedProject.yarnUsages, yarns)}
-                </p>
-                <p className="text-xs text-indigo-400 mt-0.5">
-                  рассчитано по формуле Р = (Р1 × Р2) ÷ (Р1 + Р2)
                 </p>
               </div>
 
@@ -239,8 +244,12 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
                 </div>
               )}
 
+              {/* КНОПКИ */}
               <div className="mt-5 flex gap-2">
-                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
+                <button 
+                  onClick={() => setEditingProject(selectedProject)} // <--- 5. Вешаем клик!
+                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+                >
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button
@@ -254,6 +263,15 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery }) => {
           </>
         )}
       </Modal>
+
+      {/* <--- 6. Рендерим саму форму редактирования (как в образцах) */}
+      <EditProjectForm
+        isOpen={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        onSave={handleEditProject}
+        yarns={yarns}
+        project={editingProject}
+      />
     </div>
   );
 };
