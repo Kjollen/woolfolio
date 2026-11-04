@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sample, Yarn } from '../types';
 import { formatFoldedMeterage } from '../utils/yarnCalc';
 import Modal from './Modal';
+import EditSampleForm from './EditSampleForm';
 
 interface Props {
   samples: Sample[];
@@ -11,11 +12,24 @@ interface Props {
 
 const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
+  const [editingSample, setEditingSample] = useState<Sample | null>(null);
 
   const getSampleYarns = (sample: Sample): Yarn[] =>
     sample.yarnUsages
       .map((u) => yarns.find((y) => y.id === u.yarnId))
       .filter((y): y is Yarn => !!y);
+
+  const handleEditSample = async (updatedSample: Sample) => {
+  try {
+    const pb = (window as any).pb;
+    await pb.collection('samples').update(updatedSample.id, updatedSample);
+    // Обновляем локальное состояние — нужно будет передать через props
+    window.location.reload(); // Временное решение, пока не подключим обновление списка
+  } catch (error) {
+    console.error('Ошибка при обновлении образца:', error);
+    alert('Не удалось сохранить изменения');
+  }
+};
 
   const filteredSamples = samples.filter((sample) => {
     if (!searchQuery) return true;
@@ -227,23 +241,35 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
-                  <i className="fas fa-edit mr-1"></i> Редактировать
-                </button>
-                <button
-                  onClick={() => setSelectedSample(null)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Закрыть
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </Modal>
-    </div>
-  );
+                         <div className="flex gap-2">
+             <button 
+               onClick={() => setEditingSample(selectedSample)}
+               className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+             >
+               <i className="fas fa-edit mr-1"></i> Редактировать
+             </button>
+             <button
+               onClick={() => setSelectedSample(null)}
+               className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+             >
+               Закрыть
+             </button>
+           </div>
+         </div>
+       </>
+     )}
+   </Modal>
+
+   {/* Edit Sample Form */}
+   <EditSampleForm
+     isOpen={!!editingSample}
+     onClose={() => setEditingSample(null)}
+     onSave={handleEditSample}
+     yarns={yarns}
+     sample={editingSample}
+   />
+ </div>
+);
 };
 
 export default SamplesSection;
