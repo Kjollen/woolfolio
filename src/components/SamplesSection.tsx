@@ -11,7 +11,7 @@ interface Props {
   onSampleUpdate: (sample: Sample) => void;
 }
 
-const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
+const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSampleUpdate }) => {
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
 
@@ -20,17 +20,9 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
       .map((u) => yarns.find((y) => y.id === u.yarnId))
       .filter((y): y is Yarn => !!y);
 
-  const handleEditSample = async (updatedSample: Sample) => {
-  try {
-    const pb = (window as any).pb;
-    await pb.collection('samples').update(updatedSample.id, updatedSample);
-    // Обновляем локальное состояние — нужно будет передать через props
-    window.location.reload(); // Временное решение, пока не подключим обновление списка
-  } catch (error) {
-    console.error('Ошибка при обновлении образца:', error);
-    alert('Не удалось сохранить изменения');
-  }
-};
+  const handleEditSample = (updatedSample: Sample) => {
+    onSampleUpdate(updatedSample);
+  };
 
   const filteredSamples = samples.filter((sample) => {
     if (!searchQuery) return true;
