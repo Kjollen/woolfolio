@@ -28,6 +28,25 @@ const sections: { id: Section; label: string; icon: string }[] = [
   { id: 'patterns', label: 'Схемы', icon: 'fas fa-book-open' },
 ];
 
+// Безопасный парсинг массива из строки PocketBase
+const safeParseArray = (value: any): any[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      // Если PocketBase сохранил массив как строку через запятую (глюк текстового поля)
+      if (value.includes(',') && !value.startsWith('[')) {
+        return value.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+      return []; // Если не удалось распарсить, возвращаем пустой массив, а не крашим приложение
+    }
+  }
+  return [];
+};
+
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +85,7 @@ function App() {
     }
   }, [user]);
 
-    const loadData = async () => {
+      const loadData = async () => {
     setDataLoading(true);
     try {
       const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
@@ -79,24 +98,25 @@ function App() {
       setYarns(yarnsData as any);
       setSamples(samplesData as any);
 
-      // 1. Парсим Проекты (превращаем строки JSON в массивы)
+      // Безопасно парсим Проекты
       const parsedProjects = projectsData.map((p: any) => ({
         ...p,
-        photos: typeof p.photos === 'string' ? JSON.parse(p.photos) : (p.photos || []),
-        yarnUsages: typeof p.yarnUsages === 'string' ? JSON.parse(p.yarnUsages) : (p.yarnUsages || []),
+        photos: safeParseArray(p.photos),
+        yarnUsages: safeParseArray(p.yarnUsages),
       }));
       setProjects(parsedProjects);
 
-      // 2. Парсим Схемы (превращаем строки JSON в массивы)
+      // Безопасно парсим Схемы
       const parsedPatterns = patternsData.map((p: any) => ({
         ...p,
-        photos: typeof p.photos === 'string' ? JSON.parse(p.photos) : (p.photos || []),
-        pdfs: typeof p.pdfs === 'string' ? JSON.parse(p.pdfs) : (p.pdfs || []),
+        photos: safeParseArray(p.photos),
+        pdfs: safeParseArray(p.pdfs),
       }));
       setPatterns(parsedPatterns);
 
     } catch (error) {
-      console.error('Ошибка загрузки данных:', error);
+      console.error('Критическая ошибка загрузки данных:', error);
+      alert('Ошибка загрузки данных. Проверьте консоль браузера (F12).');
     } finally {
       setDataLoading(false);
     }
@@ -199,59 +219,53 @@ function App() {
   }
 };
 
-const handleUpdatePattern = async (updatedPattern: Pattern) => {
+  const handleUpdateProject = async (updatedProject: Project) => {
     try {
-      // 1. Готовим данные: массивы превращаем в JSON-строки
+      const payload = {
+        ...updatedProject,
+        // Принудительно превращаем в JSON-строку. Если массив пустой, будет "[]"
+        photos: JSON.stringify(updatedProject.photos || []),
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+      };
+
+      const updated = await pb.collection('projects').update(updatedProject.id, payload);
+      
+      // После обновления снова безопасно парсим ответ от сервера, чтобы UI не сломался
+      const parsedUpdated = {
+        ...updated,
+        photos: safeParseArray(updated.photos),
+        yarnUsages: safeParseArray(updated.yarnUsages),
+      };
+
+      setProjects(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
+      setEditingProject(null);
+    } catch (error) {
+      console.error('Ошибка обновления проекта:', error);
+      alert('Не удалось сохранить изменения. Проверьте консоль.');
+    }
+  };
+
+  const handleUpdatePattern = async (updatedPattern: Pattern) => {
+    try {
       const payload = {
         ...updatedPattern,
         photos: JSON.stringify(updatedPattern.photos || []),
         pdfs: JSON.stringify(updatedPattern.pdfs || []),
       };
 
-      // 2. Отправляем в PocketBase
       const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
-
-      // 3. Парсим ответ от PocketBase, чтобы в React-стейте снова были массивы
+      
       const parsedUpdated = {
         ...updated,
-        photos: typeof updated.photos === 'string' ? JSON.parse(updated.photos) : updated.photos,
-        pdfs: typeof updated.pdfs === 'string' ? JSON.parse(updated.pdfs) : updated.pdfs,
+        photos: safeParseArray(updated.photos),
+        pdfs: safeParseArray(updated.pdfs),
       };
 
-      // 4. Обновляем локальный стейт
       setPatterns(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
       setEditingPattern(null);
     } catch (error) {
       console.error('Ошибка обновления схемы:', error);
-      alert('Не удалось сохранить изменения');
-    }
-  };
-  
-const handleUpdateProject = async (updatedProject: Project) => {
-    try {
-      // 1. Готовим данные: массивы превращаем в JSON-строки
-      const payload = {
-        ...updatedProject,
-        photos: JSON.stringify(updatedProject.photos || []),
-        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-      };
-
-      // 2. Отправляем в PocketBase
-      const updated = await pb.collection('projects').update(updatedProject.id, payload);
-
-      // 3. Парсим ответ от PocketBase, чтобы в React-стейте снова были массивы
-      const parsedUpdated = {
-        ...updated,
-        photos: typeof updated.photos === 'string' ? JSON.parse(updated.photos) : updated.photos,
-        yarnUsages: typeof updated.yarnUsages === 'string' ? JSON.parse(updated.yarnUsages) : updated.yarnUsages,
-      };
-
-      // 4. Обновляем локальный стейт
-      setProjects(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
-      setEditingProject(null);
-    } catch (error) {
-      console.error('Ошибка обновления проекта:', error);
-      alert('Не удалось сохранить изменения');
+      alert('Не удалось сохранить изменения. Проверьте консоль.');
     }
   };
 
