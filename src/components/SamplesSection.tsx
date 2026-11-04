@@ -91,7 +91,7 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                   Спицы: {sample.needleSize} мм
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Плотность (после ВТО): {sample.stitchesWidthAfter}п × {sample.rowsHeightAfter}р
+                  Плотность (после ВТО): {((sample.stitchesWidthAfter / sample.measurementWidthAfter)).toFixed(2)}п × {((sample.rowsHeightAfter / sample.measurementHeightAfter)).toFixed(2)}р на 1 см
                 </p>
               </div>
             </div>
@@ -186,8 +186,8 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                 <div className="mt-2 bg-white rounded-lg p-2 text-center">
                   <span className="text-xs text-gray-400">Плотность вязания</span>
                   <p className="font-bold text-blue-700">
-                    {selectedSample.stitchesWidthBefore}п × {selectedSample.rowsHeightBefore}р
-                    <span className="text-xs font-normal text-gray-500"> на {selectedSample.measurementWidthBefore}×{selectedSample.measurementHeightBefore} см</span>
+                    {(selectedSample.stitchesWidthBefore / selectedSample.measurementWidthBefore).toFixed(2)}п × {(selectedSample.rowsHeightBefore / selectedSample.measurementHeightBefore).toFixed(2)}р
+                    <span className="text-xs font-normal text-gray-500"> на 1 см</span>
                   </p>
                 </div>
               </div>
@@ -221,8 +221,8 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
                 <div className="mt-2 bg-white rounded-lg p-2 text-center">
                   <span className="text-xs text-gray-400">Плотность вязания</span>
                   <p className="font-bold text-green-700">
-                    {selectedSample.stitchesWidthAfter}п × {selectedSample.rowsHeightAfter}р
-                    <span className="text-xs font-normal text-gray-500"> на {selectedSample.measurementWidthAfter}×{selectedSample.measurementHeightAfter} см</span>
+                    {(selectedSample.stitchesWidthAfter / selectedSample.measurementWidthAfter).toFixed(2)}п × {(selectedSample.rowsHeightAfter / selectedSample.measurementHeightAfter).toFixed(2)}р
+                    <span className="text-xs font-normal text-gray-500"> на 1 см</span>
                   </p>
                 </div>
               </div>
