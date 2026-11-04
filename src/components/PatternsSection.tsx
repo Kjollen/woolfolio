@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
 import { Pattern } from '../types';
 import Modal from './Modal';
+import EditPatternForm from './EditPatternForm'; // <--- 1. Импортируем форму
 
 interface Props {
   patterns: Pattern[];
   searchQuery: string;
+  onPatternUpdate: (pattern: Pattern) => void; // <--- 2. Добавляем пропс
 }
 
-const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
+const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpdate }) => { // <--- 3. Деструктурируем
   const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
+  const [editingPattern, setEditingPattern] = useState<Pattern | null>(null); // <--- 4. Состояние редактирования
+  
+  // <--- 5. Обработчик сохранения
+  const handleEditPattern = (updatedPattern: Pattern) => {
+    onPatternUpdate(updatedPattern);
+  };
 
   const filteredPatterns = patterns.filter((pattern) => {
     if (!searchQuery) return true;
@@ -141,7 +149,13 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
               )}
 
               <div className="mt-5 flex gap-2">
-                <button className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
+                <button 
+                  onClick={() => {
+                    setSelectedPattern(null); // <--- 6. Закрываем просмотр
+                    setEditingPattern(selectedPattern); // <--- 7. Открываем редактирование
+                  }}
+                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+                >
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button
@@ -155,6 +169,14 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery }) => {
           </>
         )}
       </Modal>
+
+      {/* <--- 8. Рендерим форму редактирования (ВНЕ модалки просмотра) */}
+      <EditPatternForm
+        isOpen={!!editingPattern}
+        onClose={() => setEditingPattern(null)}
+        onSave={handleEditPattern}
+        pattern={editingPattern}
+      />
     </div>
   );
 };
