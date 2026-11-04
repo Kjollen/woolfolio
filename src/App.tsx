@@ -10,6 +10,9 @@ import AddProjectForm from './components/AddProjectForm';
 import AddSampleForm from './components/AddSampleForm';
 import AddPatternForm from './components/AddPatternForm';
 import EditYarnForm from './components/EditYarnForm';
+import EditSampleForm from './components/EditSampleForm';
+import EditPatternForm from './components/EditPatternForm';
+import EditProjectForm from './components/EditProjectForm';
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -49,6 +52,9 @@ function App() {
 
   // Формы редактирования
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
+  const [editingSample, setEditingSample] = useState<Sample | null>(null);
+  const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
