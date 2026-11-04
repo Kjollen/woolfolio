@@ -66,7 +66,7 @@ function App() {
     }
   }, [user]);
 
-  const loadData = async () => {
+    const loadData = async () => {
     setDataLoading(true);
     try {
       const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
@@ -77,9 +77,24 @@ function App() {
       ]);
 
       setYarns(yarnsData as any);
-      setProjects(projectsData as any);
       setSamples(samplesData as any);
-      setPatterns(patternsData as any);
+
+      // 1. Парсим Проекты (превращаем строки JSON в массивы)
+      const parsedProjects = projectsData.map((p: any) => ({
+        ...p,
+        photos: typeof p.photos === 'string' ? JSON.parse(p.photos) : (p.photos || []),
+        yarnUsages: typeof p.yarnUsages === 'string' ? JSON.parse(p.yarnUsages) : (p.yarnUsages || []),
+      }));
+      setProjects(parsedProjects);
+
+      // 2. Парсим Схемы (превращаем строки JSON в массивы)
+      const parsedPatterns = patternsData.map((p: any) => ({
+        ...p,
+        photos: typeof p.photos === 'string' ? JSON.parse(p.photos) : (p.photos || []),
+        pdfs: typeof p.pdfs === 'string' ? JSON.parse(p.pdfs) : (p.pdfs || []),
+      }));
+      setPatterns(parsedPatterns);
+
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
     } finally {
