@@ -201,32 +201,53 @@ function App() {
 
 const handleUpdatePattern = async (updatedPattern: Pattern) => {
     try {
-      // Упаковываем массивы в JSON-строки для поля типа "Текст"
+      // 1. Готовим данные: массивы превращаем в JSON-строки
       const payload = {
         ...updatedPattern,
         photos: JSON.stringify(updatedPattern.photos || []),
         pdfs: JSON.stringify(updatedPattern.pdfs || []),
       };
 
+      // 2. Отправляем в PocketBase
       const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
-      setPatterns(patterns.map(p => p.id === updated.id ? updated as any : p));
+
+      // 3. Парсим ответ от PocketBase, чтобы в React-стейте снова были массивы
+      const parsedUpdated = {
+        ...updated,
+        photos: typeof updated.photos === 'string' ? JSON.parse(updated.photos) : updated.photos,
+        pdfs: typeof updated.pdfs === 'string' ? JSON.parse(updated.pdfs) : updated.pdfs,
+      };
+
+      // 4. Обновляем локальный стейт
+      setPatterns(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
       setEditingPattern(null);
     } catch (error) {
       console.error('Ошибка обновления схемы:', error);
       alert('Не удалось сохранить изменения');
     }
   };
+  
 const handleUpdateProject = async (updatedProject: Project) => {
     try {
-      // Упаковываем массивы в JSON-строки для поля типа "Текст"
+      // 1. Готовим данные: массивы превращаем в JSON-строки
       const payload = {
         ...updatedProject,
         photos: JSON.stringify(updatedProject.photos || []),
         yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
       };
 
+      // 2. Отправляем в PocketBase
       const updated = await pb.collection('projects').update(updatedProject.id, payload);
-      setProjects(projects.map(p => p.id === updated.id ? updated as any : p));
+
+      // 3. Парсим ответ от PocketBase, чтобы в React-стейте снова были массивы
+      const parsedUpdated = {
+        ...updated,
+        photos: typeof updated.photos === 'string' ? JSON.parse(updated.photos) : updated.photos,
+        yarnUsages: typeof updated.yarnUsages === 'string' ? JSON.parse(updated.yarnUsages) : updated.yarnUsages,
+      };
+
+      // 4. Обновляем локальный стейт
+      setProjects(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
       setEditingProject(null);
     } catch (error) {
       console.error('Ошибка обновления проекта:', error);
