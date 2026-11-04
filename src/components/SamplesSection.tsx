@@ -8,6 +8,7 @@ interface Props {
   samples: Sample[];
   yarns: Yarn[];
   searchQuery: string;
+  onSampleUpdate: (sample: Sample) => void;
 }
 
 const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery }) => {
