@@ -185,26 +185,40 @@ function App() {
 };
 
 const handleUpdatePattern = async (updatedPattern: Pattern) => {
-  try {
-    await pb.collection('patterns').update(updatedPattern.id, updatedPattern);
-    setPatterns(patterns.map(p => p.id === updatedPattern.id ? updatedPattern : p));
-    setEditingPattern(null);
-  } catch (error) {
-    console.error('Ошибка обновления схемы:', error);
-    alert('Не удалось сохранить изменения');
-  }
-};
+    try {
+      // Упаковываем массивы в JSON-строки для поля типа "Текст"
+      const payload = {
+        ...updatedPattern,
+        photos: JSON.stringify(updatedPattern.photos || []),
+        pdfs: JSON.stringify(updatedPattern.pdfs || []),
+      };
 
+      const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
+      setPatterns(patterns.map(p => p.id === updated.id ? updated as any : p));
+      setEditingPattern(null);
+    } catch (error) {
+      console.error('Ошибка обновления схемы:', error);
+      alert('Не удалось сохранить изменения');
+    }
+  };
 const handleUpdateProject = async (updatedProject: Project) => {
-  try {
-    await pb.collection('projects').update(updatedProject.id, updatedProject);
-    setProjects(projects.map(p => p.id === updatedProject.id ? updatedProject : p));
-    setEditingProject(null);
-  } catch (error) {
-    console.error('Ошибка обновления проекта:', error);
-    alert('Не удалось сохранить изменения');
-  }
-};
+    try {
+      // Упаковываем массивы в JSON-строки для поля типа "Текст"
+      const payload = {
+        ...updatedProject,
+        photos: JSON.stringify(updatedProject.photos || []),
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+      };
+
+      const updated = await pb.collection('projects').update(updatedProject.id, payload);
+      setProjects(projects.map(p => p.id === updated.id ? updated as any : p));
+      setEditingProject(null);
+    } catch (error) {
+      console.error('Ошибка обновления проекта:', error);
+      alert('Не удалось сохранить изменения');
+    }
+  };
+
 
   const handleSaveProject = async (project: Project) => {
     try {
