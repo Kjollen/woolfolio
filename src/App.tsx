@@ -546,6 +546,28 @@ const handleUpdateProject = async (updatedProject: Project) => {
         onSave={handleUpdateYarn}
         yarn={editingYarn}
       />
+      <EditSampleForm
+        isOpen={!!editingSample}
+        onClose={() => setEditingSample(null)}
+        onSave={handleUpdateSample}
+        yarns={yarns}
+        sample={editingSample}
+      />
+
+      <EditPatternForm
+        isOpen={!!editingPattern}
+        onClose={() => setEditingPattern(null)}
+        onSave={handleUpdatePattern}
+        pattern={editingPattern}
+      />
+
+      <EditProjectForm
+        isOpen={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        onSave={handleUpdateProject}
+        yarns={yarns}
+        project={editingProject}
+      />
     </div>
   );
 }
