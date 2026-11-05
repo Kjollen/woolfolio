@@ -323,85 +323,63 @@ const handleUpdateProject = async (updatedProject: Project) => {
     console.log('Удаляем фото:', deletedPhotos.length, 'шт');
     console.log('Новые фото:', newPhotos.length, 'шт');
 
-    // Получаем базовый URL из PocketBase
     const baseUrl = (pb as any).baseUrl || 'https://woolfolio.ru';
     const token = pb.authStore.token;
 
-    // ШАГ 1: Удаляем старые файлы через прямой fetch
+    // Создаём ОДИН FormData для всех операций
+    const formData = new FormData();
+
+    // Текстовые поля
+    formData.append('name', updatedProject.name);
+    formData.append('stage', updatedProject.stage);
+    formData.append('needleSize', String(updatedProject.needleSize));
+    formData.append('startDate', updatedProject.startDate || '');
+    formData.append('endDate', updatedProject.endDate || '');
+    formData.append('notes', updatedProject.notes || '');
+    formData.append('yarnUsages', JSON.stringify(updatedProject.yarnUsages || []));
+
+    // Файлы для удаления (с префиксом -)
     if (deletedPhotos.length > 0) {
-      const filenames = deletedPhotos.map(url => {
-        const parts = url.split('/');
-        return '-' + parts[parts.length - 1];
+      deletedPhotos.forEach(url => {
+        const filename = url.split('/').pop() || url;
+        formData.append('photos', '-' + filename);
+        console.log('Добавлено на удаление:', '-' + filename);
       });
-
-      console.log('Отправляем на удаление:', filenames);
-
-      const response = await fetch(`${baseUrl}/api/collections/projects/records/${updatedProject.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          photos: filenames
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Ошибка удаления файлов:', errorData);
-        throw new Error(errorData.message || 'Не удалось удалить файлы');
-      }
-
-      console.log('Файлы удалены успешно');
     }
 
-    // ШАГ 2: Загружаем новые файлы через FormData
+    // Новые файлы для загрузки
     if (newPhotos.length > 0) {
-      const formData = new FormData();
       newPhotos.forEach((photo, index) => {
         const file = base64ToFile(photo, `project_photo_${index}.jpg`);
         formData.append('photos', file);
+        console.log('Добавлен новый файл:', file.name);
       });
-
-      console.log('Загружаем новых файлов:', newPhotos.length);
-
-      const response = await fetch(`${baseUrl}/api/collections/projects/records/${updatedProject.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-          // Content-Type НЕ указываем — браузер сам добавит boundary для FormData
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Ошибка загрузки файлов:', errorData);
-        throw new Error(errorData.message || 'Не удалось загрузить файлы');
-      }
-
-      console.log('Файлы загружены успешно');
     }
 
-    // ШАГ 3: Обновляем текстовые поля
-    console.log('Обновляем текстовые поля...');
-    await pb.collection('projects').update(updatedProject.id, {
-      name: updatedProject.name,
-      stage: updatedProject.stage,
-      needleSize: updatedProject.needleSize,
-      startDate: updatedProject.startDate,
-      endDate: updatedProject.endDate,
-      notes: updatedProject.notes,
-      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+    console.log('Отправляем FormData...');
+
+    // ОДИН запрос через fetch
+    const response = await fetch(`${baseUrl}/api/collections/projects/records/${updatedProject.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Content-Type НЕ указываем!
+      },
+      body: formData
     });
-    console.log('Текстовые поля обновлены');
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Ошибка ответа:', errorData);
+      throw new Error(errorData.message || 'Не удалось сохранить изменения');
+    }
+
+    console.log('Успешно сохранено');
 
     await loadData();
     setEditingProject(null);
   } catch (error: any) {
     console.error('Ошибка обновления проекта:', error);
-    console.error('Детали ошибки:', error.data);
     alert(error.message || 'Не удалось сохранить изменения');
   }
 };
@@ -426,105 +404,67 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
     const baseUrl = (pb as any).baseUrl || 'https://woolfolio.ru';
     const token = pb.authStore.token;
 
-    // ШАГ 1: Удаляем старые фото
+    // Создаём ОДИН FormData
+    const formData = new FormData();
+
+    // Текстовые поля
+    formData.append('name', updatedPattern.name);
+    formData.append('link', updatedPattern.link || '');
+
+    // Фото для удаления
     if (deletedPhotos.length > 0) {
-      const filenames = deletedPhotos.map(url => {
-        const parts = url.split('/');
-        return '-' + parts[parts.length - 1];
+      deletedPhotos.forEach(url => {
+        const filename = url.split('/').pop() || url;
+        formData.append('photos', '-' + filename);
       });
-
-      const response = await fetch(`${baseUrl}/api/collections/patterns/records/${updatedPattern.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ photos: filenames })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Не удалось удалить фото');
-      }
     }
 
-    // ШАГ 2: Удаляем старые PDF
-    if (deletedPdfs.length > 0) {
-      const filenames = deletedPdfs.map(url => {
-        const parts = url.split('/');
-        return '-' + parts[parts.length - 1];
-      });
-
-      const response = await fetch(`${baseUrl}/api/collections/patterns/records/${updatedPattern.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ pdfs: filenames })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Не удалось удалить PDF');
-      }
-    }
-
-    // ШАГ 3: Загружаем новые фото
+    // Новые фото
     if (newPhotos.length > 0) {
-      const formData = new FormData();
       newPhotos.forEach((photo, index) => {
         const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
         formData.append('photos', file);
       });
-
-      const response = await fetch(`${baseUrl}/api/collections/patterns/records/${updatedPattern.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Не удалось загрузить фото');
-      }
     }
 
-    // ШАГ 4: Загружаем новые PDF
+    // PDF для удаления
+    if (deletedPdfs.length > 0) {
+      deletedPdfs.forEach(url => {
+        const filename = url.split('/').pop() || url;
+        formData.append('pdfs', '-' + filename);
+      });
+    }
+
+    // Новые PDF
     if (newPdfs.length > 0) {
-      const formData = new FormData();
       newPdfs.forEach((pdf, index) => {
         const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
         formData.append('pdfs', file);
       });
-
-      const response = await fetch(`${baseUrl}/api/collections/patterns/records/${updatedPattern.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Не удалось загрузить PDF');
-      }
     }
 
-    // ШАГ 5: Обновляем текстовые поля
-    await pb.collection('patterns').update(updatedPattern.id, {
-      name: updatedPattern.name,
-      link: updatedPattern.link || '',
+    console.log('Отправляем FormData...');
+
+    const response = await fetch(`${baseUrl}/api/collections/patterns/records/${updatedPattern.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Ошибка ответа:', errorData);
+      throw new Error(errorData.message || 'Не удалось сохранить изменения');
+    }
+
+    console.log('Успешно сохранено');
 
     await loadData();
     setEditingPattern(null);
   } catch (error: any) {
     console.error('Ошибка обновления схемы:', error);
-    console.error('Детали ошибки:', error.data);
     alert(error.message || 'Не удалось сохранить изменения');
   }
 };
