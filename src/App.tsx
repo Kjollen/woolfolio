@@ -234,47 +234,60 @@ function App() {
   }
 };
 
-    const handleUpdateProject = async (updatedProject: Project) => {
+const handleUpdateProject = async (updatedProject: Project) => {
   try {
-    const payload: any = {
-      name: updatedProject.name,
-      stage: updatedProject.stage,
-      needleSize: updatedProject.needleSize,
-      startDate: updatedProject.startDate,
-      endDate: updatedProject.endDate,
-      notes: updatedProject.notes,
-      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-    };
-
-    // Получаем оригинальный проект из стейта
     const originalProject = projects.find(p => p.id === updatedProject.id);
     const originalPhotos = originalProject?.photos || [];
 
-    // Определяем, какие фото были удалены
-    const deletedPhotos = originalPhotos.filter(
-      p => !updatedProject.photos.includes(p)
-    );
+    // Определяем удалённые и новые фото
+    const deletedPhotos = originalPhotos.filter(p => !updatedProject.photos.includes(p));
+    const newPhotos = updatedProject.photos.filter((p) => p.startsWith('data:'));
 
-    // Новые фото (base64)
-    const newPhotos = updatedProject.photos
-      .filter((p) => p.startsWith('data:'))
-      .map((p, i) => base64ToFile(p, `project_photo_${i}.jpg`));
-
-    // Если все фото удалены - очищаем поле
-    if (updatedProject.photos.length === 0 && originalPhotos.length > 0) {
-      payload.photos = "";
-    } else if (deletedPhotos.length > 0 || newPhotos.length > 0) {
-      // Формируем список: удалённые файлы (с префиксом -) + новые файлы
-      const filesToDelete = deletedPhotos.map(p => {
-        // Извлекаем имя файла из URL PocketBase
-        const filename = p.split('/').pop() || p;
-        return `-${filename}`;
-      });
-      
-      payload.photos = [...filesToDelete, ...newPhotos];
+    // Если ничего не изменилось - просто обновляем текстовые поля
+    if (deletedPhotos.length === 0 && newPhotos.length === 0) {
+      const payload = {
+        name: updatedProject.name,
+        stage: updatedProject.stage,
+        needleSize: updatedProject.needleSize,
+        startDate: updatedProject.startDate,
+        endDate: updatedProject.endDate,
+        notes: updatedProject.notes,
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+      };
+      await pb.collection('projects').update(updatedProject.id, payload);
+      await loadData();
+      setEditingProject(null);
+      return;
     }
 
-    const updated = await pb.collection('projects').update(updatedProject.id, payload);
+    // Используем FormData для смешанных операций
+    const formData = new FormData();
+    formData.append('name', updatedProject.name);
+    formData.append('stage', updatedProject.stage);
+    formData.append('needleSize', String(updatedProject.needleSize));
+    formData.append('startDate', updatedProject.startDate || '');
+    formData.append('endDate', updatedProject.endDate || '');
+    formData.append('notes', updatedProject.notes || '');
+    formData.append('yarnUsages', JSON.stringify(updatedProject.yarnUsages || []));
+
+    // Если все фото удалены
+    if (updatedProject.photos.length === 0 && originalPhotos.length > 0) {
+      formData.append('photos', '');
+    } else {
+      // Добавляем файлы для удаления (с префиксом -)
+      deletedPhotos.forEach(p => {
+        const filename = p.split('/').pop() || p;
+        formData.append('photos', `-${filename}`);
+      });
+
+      // Добавляем новые файлы
+      newPhotos.forEach((p, i) => {
+        const file = base64ToFile(p, `project_photo_${i}.jpg`);
+        formData.append('photos', file);
+      });
+    }
+
+    await pb.collection('projects').update(updatedProject.id, formData);
     await loadData();
     setEditingProject(null);
   } catch (error: any) {
@@ -285,57 +298,63 @@ function App() {
 
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
   try {
-    const payload: any = {
-      name: updatedPattern.name,
-      link: updatedPattern.link,
-    };
-
-    // Получаем оригинальную схему из стейта
     const originalPattern = patterns.find(p => p.id === updatedPattern.id);
     const originalPhotos = originalPattern?.photos || [];
     const originalPdfs = originalPattern?.pdfs || [];
 
-    // Определяем, какие файлы были удалены
-    const deletedPhotos = originalPhotos.filter(
-      p => !updatedPattern.photos.includes(p)
-    );
-    const deletedPdfs = originalPdfs.filter(
-      p => !updatedPattern.pdfs.includes(p)
-    );
+    // Определяем удалённые и новые файлы
+    const deletedPhotos = originalPhotos.filter(p => !updatedPattern.photos.includes(p));
+    const newPhotos = updatedPattern.photos.filter((p) => p.startsWith('data:'));
+    const deletedPdfs = originalPdfs.filter(p => !updatedPattern.pdfs.includes(p));
+    const newPdfs = updatedPattern.pdfs.filter((p) => p.startsWith('data:'));
 
-    // Новые фото (base64)
-    const newPhotos = updatedPattern.photos
-      .filter((p) => p.startsWith('data:'))
-      .map((p, i) => base64ToFile(p, `pattern_photo_${i}.jpg`));
+    // Если ничего не изменилось - просто обновляем текстовые поля
+    if (deletedPhotos.length === 0 && newPhotos.length === 0 && 
+        deletedPdfs.length === 0 && newPdfs.length === 0) {
+      const payload = {
+        name: updatedPattern.name,
+        link: updatedPattern.link || '',
+      };
+      await pb.collection('patterns').update(updatedPattern.id, payload);
+      await loadData();
+      setEditingPattern(null);
+      return;
+    }
 
-    // Новые PDF (base64)
-    const newPdfs = updatedPattern.pdfs
-      .filter((p) => p.startsWith('data:'))
-      .map((p, i) => base64ToFile(p, `pattern_doc_${i}.pdf`));
+    // Используем FormData
+    const formData = new FormData();
+    formData.append('name', updatedPattern.name);
+    formData.append('link', updatedPattern.link || '');
 
     // Обработка фото
     if (updatedPattern.photos.length === 0 && originalPhotos.length > 0) {
-      payload.photos = "";
-    } else if (deletedPhotos.length > 0 || newPhotos.length > 0) {
-      const filesToDelete = deletedPhotos.map(p => {
+      formData.append('photos', '');
+    } else {
+      deletedPhotos.forEach(p => {
         const filename = p.split('/').pop() || p;
-        return `-${filename}`;
+        formData.append('photos', `-${filename}`);
       });
-      payload.photos = [...filesToDelete, ...newPhotos];
+      newPhotos.forEach((p, i) => {
+        const file = base64ToFile(p, `pattern_photo_${i}.jpg`);
+        formData.append('photos', file);
+      });
     }
 
     // Обработка PDF
     if (updatedPattern.pdfs.length === 0 && originalPdfs.length > 0) {
-      payload.pdfs = "";
-    } else if (deletedPdfs.length > 0 || newPdfs.length > 0) {
-      const filesToDelete = deletedPdfs.map(p => {
+      formData.append('pdfs', '');
+    } else {
+      deletedPdfs.forEach(p => {
         const filename = p.split('/').pop() || p;
-        return `-${filename}`;
+        formData.append('pdfs', `-${filename}`);
       });
-      payload.pdfs = [...filesToDelete, ...newPdfs];
+      newPdfs.forEach((p, i) => {
+        const file = base64ToFile(p, `pattern_doc_${i}.pdf`);
+        formData.append('pdfs', file);
+      });
     }
 
-    const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
+    await pb.collection('patterns').update(updatedPattern.id, formData);
     await loadData();
     setEditingPattern(null);
   } catch (error: any) {
