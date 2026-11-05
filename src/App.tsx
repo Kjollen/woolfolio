@@ -23,7 +23,8 @@ import pb from './lib/pocketbase';
 // Вспомогательная функция: превращает Base64 строку в настоящий File объект
 const base64ToFile = (base64: string, filename: string): File => {
   const arr = base64.split(',');
-  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
   const bstr = atob(arr[1]);
   let n = bstr.length;
   const u8arr = new Uint8Array(n);
