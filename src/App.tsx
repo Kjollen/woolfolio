@@ -242,6 +242,75 @@ function App() {
   }
 };
 
+// Вспомогательная функция для удаления файлов через прямой fetch
+const deleteFiles = async (collectionName: string, recordId: string, field: string, filenames: string[]) => {
+  const url = `${pb.baseUrl}api/collections/${collectionName}/records/${recordId}`;
+  
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${pb.authStore.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      [field]: filenames.map(f => '-' + f)
+    })
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to delete files');
+  }
+  
+  return response.json();
+};
+
+// Вспомогательная функция для загрузки файлов через FormData
+const uploadFiles = async (collectionName: string, recordId: string, field: string, files: File[]) => {
+  const url = `${pb.baseUrl}api/collections/${collectionName}/records/${recordId}`;
+  const formData = new FormData();
+  
+  files.forEach(file => {
+    formData.append(field, file);
+  });
+  
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${pb.authStore.token}`
+    },
+    body: formData
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to upload files');
+  }
+  
+  return response.json();
+};
+
+// Вспомогательная функция для обновления текстовых полей
+const updateRecord = async (collectionName: string, recordId: string, data: any) => {
+  const url = `${pb.baseUrl}api/collections/${collectionName}/records/${recordId}`;
+  
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${pb.authStore.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to update record');
+  }
+  
+  return response.json();
+};
+
 const handleUpdateProject = async (updatedProject: Project) => {
   try {
     const originalProject = projects.find(p => p.id === updatedProject.id);
@@ -254,36 +323,25 @@ const handleUpdateProject = async (updatedProject: Project) => {
     console.log('Удаляем фото:', deletedPhotos.length, 'шт');
     console.log('Новые фото:', newPhotos.length, 'шт');
 
-    // ШАГ 1: Удаляем старые файлы (ОТДЕЛЬНЫЙ запрос, только файлы)
+    // ШАГ 1: Удаляем старые файлы через JSON запрос
     if (deletedPhotos.length > 0) {
-      const deleteFormData = new FormData();
-      deletedPhotos.forEach(url => {
-        const filename = url.split('/').pop() || url;
-        deleteFormData.append('photos', '-' + filename);
-        console.log('Добавлено на удаление:', '-' + filename);
-      });
-      
-      console.log('Отправляем запрос на удаление...');
-      await pb.collection('projects').update(updatedProject.id, deleteFormData);
-      console.log('Удаление успешно');
+      const filenames = deletedPhotos.map(url => url.split('/').pop() || url);
+      console.log('Удаляем файлы:', filenames);
+      await deleteFiles('projects', updatedProject.id, 'photos', filenames);
+      console.log('Файлы удалены');
     }
 
-    // ШАГ 2: Загружаем новые файлы (ОТДЕЛЬНЫЙ запрос, только файлы)
+    // ШАГ 2: Загружаем новые файлы через FormData
     if (newPhotos.length > 0) {
-      const uploadFormData = new FormData();
-      newPhotos.forEach((photo, index) => {
-        const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-        uploadFormData.append('photos', file);
-      });
-      
-      console.log('Отправляем запрос на загрузку...');
-      await pb.collection('projects').update(updatedProject.id, uploadFormData);
-      console.log('Загрузка успешна');
+      const files = newPhotos.map((photo, index) => base64ToFile(photo, `project_photo_${index}.jpg`));
+      console.log('Загружаем файлов:', files.length);
+      await uploadFiles('projects', updatedProject.id, 'photos', files);
+      console.log('Файлы загружены');
     }
 
-    // ШАГ 3: Обновляем текстовые поля (ОТДЕЛЬНЫЙ запрос, JSON)
+    // ШАГ 3: Обновляем текстовые поля через JSON
     console.log('Обновляем текстовые поля...');
-    await pb.collection('projects').update(updatedProject.id, {
+    await updateRecord('projects', updatedProject.id, {
       name: updatedProject.name,
       stage: updatedProject.stage,
       needleSize: updatedProject.needleSize,
@@ -322,46 +380,30 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
 
     // ШАГ 1: Удаляем старые фото
     if (deletedPhotos.length > 0) {
-      const deleteFormData = new FormData();
-      deletedPhotos.forEach(url => {
-        const filename = url.split('/').pop() || url;
-        deleteFormData.append('photos', '-' + filename);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, deleteFormData);
+      const filenames = deletedPhotos.map(url => url.split('/').pop() || url);
+      await deleteFiles('patterns', updatedPattern.id, 'photos', filenames);
     }
 
     // ШАГ 2: Удаляем старые PDF
     if (deletedPdfs.length > 0) {
-      const deleteFormData = new FormData();
-      deletedPdfs.forEach(url => {
-        const filename = url.split('/').pop() || url;
-        deleteFormData.append('pdfs', '-' + filename);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, deleteFormData);
+      const filenames = deletedPdfs.map(url => url.split('/').pop() || url);
+      await deleteFiles('patterns', updatedPattern.id, 'pdfs', filenames);
     }
 
     // ШАГ 3: Загружаем новые фото
     if (newPhotos.length > 0) {
-      const uploadFormData = new FormData();
-      newPhotos.forEach((photo, index) => {
-        const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
-        uploadFormData.append('photos', file);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, uploadFormData);
+      const files = newPhotos.map((photo, index) => base64ToFile(photo, `pattern_photo_${index}.jpg`));
+      await uploadFiles('patterns', updatedPattern.id, 'photos', files);
     }
 
     // ШАГ 4: Загружаем новые PDF
     if (newPdfs.length > 0) {
-      const uploadFormData = new FormData();
-      newPdfs.forEach((pdf, index) => {
-        const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
-        uploadFormData.append('pdfs', file);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, uploadFormData);
+      const files = newPdfs.map((pdf, index) => base64ToFile(pdf, `pattern_doc_${index}.pdf`));
+      await uploadFiles('patterns', updatedPattern.id, 'pdfs', files);
     }
 
     // ШАГ 5: Обновляем текстовые поля
-    await pb.collection('patterns').update(updatedPattern.id, {
+    await updateRecord('patterns', updatedPattern.id, {
       name: updatedPattern.name,
       link: updatedPattern.link || '',
     });
