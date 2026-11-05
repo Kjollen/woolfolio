@@ -20,6 +20,19 @@ import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
 import pb from './lib/pocketbase';
 
+// Вспомогательная функция: превращает Base64 строку в настоящий File объект
+const base64ToFile = (base64: string, filename: string): File => {
+  const arr = base64.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
 const sections: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Главная', icon: 'fas fa-home' },
   { id: 'yarn', label: 'Пряжа', icon: '🧶' },
@@ -98,25 +111,26 @@ function App() {
       setYarns(yarnsData as any);
       setSamples(samplesData as any);
 
-      // Безопасно парсим Проекты
+      // 1. Проекты: превращаем имена файлов в полные URL
       const parsedProjects = projectsData.map((p: any) => ({
         ...p,
-        photos: safeParseArray(p.photos),
-        yarnUsages: safeParseArray(p.yarnUsages),
+        // Если photos есть, берем каждый файл и строим ссылку через pb.files.getURL
+        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        // yarnUsages пока оставляем как JSON-строку (если поле Text)
+        yarnUsages: typeof p.yarnUsages === 'string' ? JSON.parse(p.yarnUsages) : (p.yarnUsages || []),
       }));
       setProjects(parsedProjects);
 
-      // Безопасно парсим Схемы
+      // 2. Схемы: превращаем имена файлов в полные URL
       const parsedPatterns = patternsData.map((p: any) => ({
         ...p,
-        photos: safeParseArray(p.photos),
-        pdfs: safeParseArray(p.pdfs),
+        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        pdfs: p.pdfs ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
       }));
       setPatterns(parsedPatterns);
 
     } catch (error) {
-      console.error('Критическая ошибка загрузки данных:', error);
-      alert('Ошибка загрузки данных. Проверьте консоль браузера (F12).');
+      console.error('Ошибка загрузки данных:', error);
     } finally {
       setDataLoading(false);
     }
@@ -221,51 +235,65 @@ function App() {
 
   const handleUpdateProject = async (updatedProject: Project) => {
     try {
-      const payload = {
-        ...updatedProject,
-        // Принудительно превращаем в JSON-строку. Если массив пустой, будет "[]"
-        photos: JSON.stringify(updatedProject.photos || []),
-        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+      const payload: any = {
+        name: updatedProject.name,
+        stage: updatedProject.stage,
+        needleSize: updatedProject.needleSize,
+        startDate: updatedProject.startDate,
+        endDate: updatedProject.endDate,
+        notes: updatedProject.notes,
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []), // Пока оставляем для пряжи
       };
+
+      // Находим только НОВЫЕ фото (те, что начинаются с 'data:')
+      const newPhotos = updatedProject.photos
+        .filter((p) => p.startsWith('data:'))
+        .map((p, i) => base64ToFile(p, `project_photo_${i}.jpg`));
+
+      // Если есть новые фото, добавляем их в payload. PocketBase сам заменит старые.
+      if (newPhotos.length > 0) {
+        payload.photos = newPhotos;
+      }
 
       const updated = await pb.collection('projects').update(updatedProject.id, payload);
       
-      // После обновления снова безопасно парсим ответ от сервера, чтобы UI не сломался
-      const parsedUpdated = {
-        ...updated,
-        photos: safeParseArray(updated.photos),
-        yarnUsages: safeParseArray(updated.yarnUsages),
-      };
-
-      setProjects(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
+      // После сохранения обновляем локальный стейт (перезагружаем данные, чтобы получить свежие URL)
+      await loadData(); 
       setEditingProject(null);
     } catch (error) {
       console.error('Ошибка обновления проекта:', error);
-      alert('Не удалось сохранить изменения. Проверьте консоль.');
+      alert('Не удалось сохранить изменения');
     }
   };
 
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
     try {
-      const payload = {
-        ...updatedPattern,
-        photos: JSON.stringify(updatedPattern.photos || []),
-        pdfs: JSON.stringify(updatedPattern.pdfs || []),
+      const payload: any = {
+        name: updatedPattern.name,
+        link: updatedPattern.link,
       };
+
+      // Новые фото
+      const newPhotos = updatedPattern.photos
+        .filter((p) => p.startsWith('data:'))
+        .map((p, i) => base64ToFile(p, `pattern_photo_${i}.jpg`));
+      
+      // Новые PDF
+      const newPdfs = updatedPattern.pdfs
+        .filter((p) => p.startsWith('data:'))
+        .map((p, i) => base64ToFile(p, `pattern_doc_${i}.pdf`));
+
+      if (newPhotos.length > 0) payload.photos = newPhotos;
+      if (newPdfs.length > 0) payload.pdfs = newPdfs;
 
       const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
       
-      const parsedUpdated = {
-        ...updated,
-        photos: safeParseArray(updated.photos),
-        pdfs: safeParseArray(updated.pdfs),
-      };
-
-      setPatterns(prev => prev.map(p => p.id === parsedUpdated.id ? parsedUpdated : p));
+      // После сохранения обновляем локальный стейт
+      await loadData();
       setEditingPattern(null);
     } catch (error) {
       console.error('Ошибка обновления схемы:', error);
-      alert('Не удалось сохранить изменения. Проверьте консоль.');
+      alert('Не удалось сохранить изменения');
     }
   };
 
