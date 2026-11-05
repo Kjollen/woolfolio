@@ -107,64 +107,57 @@ function App() {
     }
   }, [user]);
 
-        const loadData = async () => {
-    console.log('🟢 НАЧАЛО ЗАГРУЗКИ ДАННЫХ');
-    setDataLoading(true);
-    try {
-      console.log('1. Загружаем пряжу...');
-      const yarnsData = await pb.collection('yarns').getFullList({ sort: '-created' });
-      console.log('✅ Пряжа загружена:', yarnsData.length);
-      setYarns(yarnsData as any);
+    const loadData = async () => {
+  setDataLoading(true);
+  try {
+    const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+      pb.collection('yarns').getFullList({ sort: '-created' }),
+      pb.collection('projects').getFullList({ sort: '-created' }),
+      pb.collection('samples').getFullList({ sort: '-created' }),
+      pb.collection('patterns').getFullList({ sort: '-created' }),
+    ]);
 
-      console.log('2. Загружаем проекты...');
-      const projectsData = await pb.collection('projects').getFullList({ sort: '-created' });
-      console.log('✅ Проекты загружены:', projectsData.length);
-      
-      const parsedProjects = projectsData.map((p: any) => {
-        const photosArray = Array.isArray(p.photos) ? p.photos : [];
-        let yarnUsagesParsed: any[] = [];
-        if (typeof p.yarnUsages === 'string') {
-          try { yarnUsagesParsed = JSON.parse(p.yarnUsages); } catch (e) { yarnUsagesParsed = []; }
-        } else if (Array.isArray(p.yarnUsages)) {
-          yarnUsagesParsed = p.yarnUsages;
-        }
-        return { 
-          ...p, 
-          photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)), 
-          yarnUsages: yarnUsagesParsed 
-        };
-      });
-      setProjects(parsedProjects);
+    setYarns(yarnsData as any);
+    setSamples(samplesData as any);
 
-      console.log('3. Загружаем образцы...');
-      const samplesData = await pb.collection('samples').getFullList({ sort: '-created' });
-      console.log('✅ Образцы загружены:', samplesData.length);
-      setSamples(samplesData as any);
+    // БЕЗОПАСНАЯ обработка проектов (с проверкой на null)
+    const parsedProjects = (projectsData || []).map((p: any) => {
+      if (!p) return null; // Пропускаем null записи
+      const photosArray = Array.isArray(p.photos) ? p.photos : [];
+      let yarnUsagesParsed: any[] = [];
+      if (typeof p.yarnUsages === 'string') {
+        try { yarnUsagesParsed = JSON.parse(p.yarnUsages); } 
+        catch (e) { yarnUsagesParsed = []; }
+      } else if (Array.isArray(p.yarnUsages)) {
+        yarnUsagesParsed = p.yarnUsages;
+      }
+      return { 
+        ...p, 
+        photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)), 
+        yarnUsages: yarnUsagesParsed 
+      };
+    }).filter(p => p !== null); // Убираем null из результата
+    setProjects(parsedProjects);
 
-      console.log('4. Загружаем схемы...');
-      const patternsData = await pb.collection('patterns').getFullList({ sort: '-created' });
-      console.log('✅ Схемы загружены:', patternsData.length);
-      
-      const parsedPatterns = patternsData.map((p: any) => {
-        const photosArray = Array.isArray(p.photos) ? p.photos : [];
-        const pdfsArray = Array.isArray(p.pdfs) ? p.pdfs : [];
-        return {
-          ...p,
-          photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)),
-          pdfs: pdfsArray.map((filename: string) => pb.files.getURL(p, filename)),
-        };
-      });
-      setPatterns(parsedPatterns);
+    // БЕЗОПАСНАЯ обработка схем
+    const parsedPatterns = (patternsData || []).map((p: any) => {
+      if (!p) return null;
+      const photosArray = Array.isArray(p.photos) ? p.photos : [];
+      const pdfsArray = Array.isArray(p.pdfs) ? p.pdfs : [];
+      return {
+        ...p,
+        photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)),
+        pdfs: pdfsArray.map((filename: string) => pb.files.getURL(p, filename)),
+      };
+    }).filter(p => p !== null);
+    setPatterns(parsedPatterns);
 
-      console.log('🟢 ВСЕ ДАННЫЕ УСПЕШНО ЗАГРУЖЕНЫ');
-    } catch (error) {
-      console.error('🔴 КРИТИЧЕСКАЯ ОШИБКА ПРИ ЗАГРУЗКЕ:', error);
-      alert('Ошибка загрузки: ' + (error as Error).message);
-    } finally {
-      console.log('🟢 ВЫКЛЮЧАЕМ ЭКРАН ЗАГРУЗКИ');
-      setDataLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error('Ошибка загрузки данных:', error);
+  } finally {
+    setDataLoading(false);
+  }
+};
   
   const renderSection = () => {
     switch (activeSection) {
