@@ -254,41 +254,51 @@ const handleUpdateProject = async (updatedProject: Project) => {
     console.log('Удаляем фото:', deletedPhotos.length, 'шт');
     console.log('Новые фото:', newPhotos.length, 'шт');
 
-    // Создаём FormData для ВСЕХ операций
-    const formData = new FormData();
-    
-    // Текстовые поля
-    formData.append('name', updatedProject.name);
-    formData.append('stage', updatedProject.stage);
-    formData.append('needleSize', String(updatedProject.needleSize));
-    formData.append('startDate', updatedProject.startDate || '');
-    formData.append('endDate', updatedProject.endDate || '');
-    formData.append('notes', updatedProject.notes || '');
-    formData.append('yarnUsages', JSON.stringify(updatedProject.yarnUsages || []));
-
-    // Файлы для удаления (с префиксом -)
+    // ШАГ 1: Удаляем старые файлы (ОТДЕЛЬНЫЙ запрос, только файлы)
     if (deletedPhotos.length > 0) {
+      const deleteFormData = new FormData();
       deletedPhotos.forEach(url => {
         const filename = url.split('/').pop() || url;
-        formData.append('photos', '-' + filename);
+        deleteFormData.append('photos', '-' + filename);
+        console.log('Добавлено на удаление:', '-' + filename);
       });
+      
+      console.log('Отправляем запрос на удаление...');
+      await pb.collection('projects').update(updatedProject.id, deleteFormData);
+      console.log('Удаление успешно');
     }
 
-    // Новые файлы для загрузки
+    // ШАГ 2: Загружаем новые файлы (ОТДЕЛЬНЫЙ запрос, только файлы)
     if (newPhotos.length > 0) {
+      const uploadFormData = new FormData();
       newPhotos.forEach((photo, index) => {
         const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-        formData.append('photos', file);
+        uploadFormData.append('photos', file);
       });
+      
+      console.log('Отправляем запрос на загрузку...');
+      await pb.collection('projects').update(updatedProject.id, uploadFormData);
+      console.log('Загрузка успешна');
     }
 
-    // ОДИН запрос с FormData
-    await pb.collection('projects').update(updatedProject.id, formData);
-    
+    // ШАГ 3: Обновляем текстовые поля (ОТДЕЛЬНЫЙ запрос, JSON)
+    console.log('Обновляем текстовые поля...');
+    await pb.collection('projects').update(updatedProject.id, {
+      name: updatedProject.name,
+      stage: updatedProject.stage,
+      needleSize: updatedProject.needleSize,
+      startDate: updatedProject.startDate,
+      endDate: updatedProject.endDate,
+      notes: updatedProject.notes,
+      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+    });
+    console.log('Текстовые поля обновлены');
+
     await loadData();
     setEditingProject(null);
   } catch (error: any) {
     console.error('Ошибка обновления проекта:', error);
+    console.error('Детали ошибки:', error.data);
     alert(error.message || 'Не удалось сохранить изменения');
   }
 };
@@ -310,52 +320,57 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
     console.log('Новые фото:', newPhotos.length, 'шт');
     console.log('Новые PDF:', newPdfs.length, 'шт');
 
-    // Создаём FormData для ВСЕХ операций
-    const formData = new FormData();
-    
-    // Текстовые поля
-    formData.append('name', updatedPattern.name);
-    formData.append('link', updatedPattern.link || '');
-
-    // Фото для удаления
+    // ШАГ 1: Удаляем старые фото
     if (deletedPhotos.length > 0) {
+      const deleteFormData = new FormData();
       deletedPhotos.forEach(url => {
         const filename = url.split('/').pop() || url;
-        formData.append('photos', '-' + filename);
+        deleteFormData.append('photos', '-' + filename);
       });
+      await pb.collection('patterns').update(updatedPattern.id, deleteFormData);
     }
 
-    // Новые фото
-    if (newPhotos.length > 0) {
-      newPhotos.forEach((photo, index) => {
-        const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
-        formData.append('photos', file);
-      });
-    }
-
-    // PDF для удаления
+    // ШАГ 2: Удаляем старые PDF
     if (deletedPdfs.length > 0) {
+      const deleteFormData = new FormData();
       deletedPdfs.forEach(url => {
         const filename = url.split('/').pop() || url;
-        formData.append('pdfs', '-' + filename);
+        deleteFormData.append('pdfs', '-' + filename);
       });
+      await pb.collection('patterns').update(updatedPattern.id, deleteFormData);
     }
 
-    // Новые PDF
+    // ШАГ 3: Загружаем новые фото
+    if (newPhotos.length > 0) {
+      const uploadFormData = new FormData();
+      newPhotos.forEach((photo, index) => {
+        const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
+        uploadFormData.append('photos', file);
+      });
+      await pb.collection('patterns').update(updatedPattern.id, uploadFormData);
+    }
+
+    // ШАГ 4: Загружаем новые PDF
     if (newPdfs.length > 0) {
+      const uploadFormData = new FormData();
       newPdfs.forEach((pdf, index) => {
         const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
-        formData.append('pdfs', file);
+        uploadFormData.append('pdfs', file);
       });
+      await pb.collection('patterns').update(updatedPattern.id, uploadFormData);
     }
 
-    // ОДИН запрос с FormData
-    await pb.collection('patterns').update(updatedPattern.id, formData);
-    
+    // ШАГ 5: Обновляем текстовые поля
+    await pb.collection('patterns').update(updatedPattern.id, {
+      name: updatedPattern.name,
+      link: updatedPattern.link || '',
+    });
+
     await loadData();
     setEditingPattern(null);
   } catch (error: any) {
     console.error('Ошибка обновления схемы:', error);
+    console.error('Детали ошибки:', error.data);
     alert(error.message || 'Не удалось сохранить изменения');
   }
 };
