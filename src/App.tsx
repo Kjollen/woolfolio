@@ -323,148 +323,44 @@ const handleUpdateProject = async (updatedProject: Project) => {
     console.log('Удаляем фото:', deletedPhotos.length, 'шт');
     console.log('Новые фото:', newPhotos.length, 'шт');
 
-    const baseUrl = (pb as any).baseUrl || 'https://woolfolio.ru';
-    const token = pb.authStore.token;
+    // Получаем список оставшихся файлов (имена, не URL)
+    const remainingPhotos = updatedProject.photos
+      .filter(p => !p.startsWith('data:'))
+      .map(url => url.split('/').pop() || url);
 
-    // Создаём ОДИН FormData для всех операций
-    const formData = new FormData();
+    console.log('Оставшиеся файлы:', remainingPhotos);
 
-    // Текстовые поля
-    formData.append('name', updatedProject.name);
-    formData.append('stage', updatedProject.stage);
-    formData.append('needleSize', String(updatedProject.needleSize));
-    formData.append('startDate', updatedProject.startDate || '');
-    formData.append('endDate', updatedProject.endDate || '');
-    formData.append('notes', updatedProject.notes || '');
-    formData.append('yarnUsages', JSON.stringify(updatedProject.yarnUsages || []));
-
-    // Файлы для удаления (с префиксом -)
-    if (deletedPhotos.length > 0) {
-      deletedPhotos.forEach(url => {
-        const filename = url.split('/').pop() || url;
-        formData.append('photos', '-' + filename);
-        console.log('Добавлено на удаление:', '-' + filename);
-      });
-    }
-
-    // Новые файлы для загрузки
+    // ШАГ 1: Загружаем новые файлы (если есть)
     if (newPhotos.length > 0) {
+      const formData = new FormData();
       newPhotos.forEach((photo, index) => {
         const file = base64ToFile(photo, `project_photo_${index}.jpg`);
         formData.append('photos', file);
-        console.log('Добавлен новый файл:', file.name);
       });
+      
+      await pb.collection('projects').update(updatedProject.id, formData);
+      console.log('Новые файлы загружены');
     }
 
-    console.log('Отправляем FormData...');
-
-    // ОДИН запрос через fetch
-    const response = await fetch(`${baseUrl}/api/collections/projects/records/${updatedProject.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`
-        // Content-Type НЕ указываем!
-      },
-      body: formData
+    // ШАГ 2: Обновляем запись с новым списком файлов
+    // PocketBase должен сам удалить файлы, которых нет в списке
+    await pb.collection('projects').update(updatedProject.id, {
+      name: updatedProject.name,
+      stage: updatedProject.stage,
+      needleSize: updatedProject.needleSize,
+      startDate: updatedProject.startDate,
+      endDate: updatedProject.endDate,
+      notes: updatedProject.notes,
+      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+      photos: remainingPhotos // Только оставшиеся файлы
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Ошибка ответа:', errorData);
-      throw new Error(errorData.message || 'Не удалось сохранить изменения');
-    }
-
-    console.log('Успешно сохранено');
-
+    
+    console.log('Запись обновлена');
     await loadData();
     setEditingProject(null);
   } catch (error: any) {
     console.error('Ошибка обновления проекта:', error);
-    alert(error.message || 'Не удалось сохранить изменения');
-  }
-};
-
-const handleUpdatePattern = async (updatedPattern: Pattern) => {
-  try {
-    const originalPattern = patterns.find(p => p.id === updatedPattern.id);
-    const originalPhotos = originalPattern?.photos || [];
-    const originalPdfs = originalPattern?.pdfs || [];
-
-    const deletedPhotos = originalPhotos.filter(p => !updatedPattern.photos.includes(p));
-    const deletedPdfs = originalPdfs.filter(p => !updatedPattern.pdfs.includes(p));
-    const newPhotos = updatedPattern.photos.filter(p => p.startsWith('data:'));
-    const newPdfs = updatedPattern.pdfs.filter(p => p.startsWith('data:'));
-
-    console.log('=== ОБНОВЛЕНИЕ СХЕМЫ ===');
-    console.log('Удаляем фото:', deletedPhotos.length, 'шт');
-    console.log('Удаляем PDF:', deletedPdfs.length, 'шт');
-    console.log('Новые фото:', newPhotos.length, 'шт');
-    console.log('Новые PDF:', newPdfs.length, 'шт');
-
-    const baseUrl = (pb as any).baseUrl || 'https://woolfolio.ru';
-    const token = pb.authStore.token;
-
-    // Создаём ОДИН FormData
-    const formData = new FormData();
-
-    // Текстовые поля
-    formData.append('name', updatedPattern.name);
-    formData.append('link', updatedPattern.link || '');
-
-    // Фото для удаления
-    if (deletedPhotos.length > 0) {
-      deletedPhotos.forEach(url => {
-        const filename = url.split('/').pop() || url;
-        formData.append('photos', '-' + filename);
-      });
-    }
-
-    // Новые фото
-    if (newPhotos.length > 0) {
-      newPhotos.forEach((photo, index) => {
-        const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
-        formData.append('photos', file);
-      });
-    }
-
-    // PDF для удаления
-    if (deletedPdfs.length > 0) {
-      deletedPdfs.forEach(url => {
-        const filename = url.split('/').pop() || url;
-        formData.append('pdfs', '-' + filename);
-      });
-    }
-
-    // Новые PDF
-    if (newPdfs.length > 0) {
-      newPdfs.forEach((pdf, index) => {
-        const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
-        formData.append('pdfs', file);
-      });
-    }
-
-    console.log('Отправляем FormData...');
-
-    const response = await fetch(`${baseUrl}/api/collections/patterns/records/${updatedPattern.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Ошибка ответа:', errorData);
-      throw new Error(errorData.message || 'Не удалось сохранить изменения');
-    }
-
-    console.log('Успешно сохранено');
-
-    await loadData();
-    setEditingPattern(null);
-  } catch (error: any) {
-    console.error('Ошибка обновления схемы:', error);
+    console.error('Детали ошибки:', error.data);
     alert(error.message || 'Не удалось сохранить изменения');
   }
 };
