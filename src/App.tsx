@@ -107,45 +107,47 @@ function App() {
     }
   }, [user]);
 
-      const loadData = async () => {
-    console.log('1. Начало загрузки данных из PocketBase...');
+        const loadData = async () => {
+    console.log('🟢 НАЧАЛО ЗАГРУЗКИ ДАННЫХ');
     setDataLoading(true);
     try {
-      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-        pb.collection('yarns').getFullList({ sort: '-created' }),
-        pb.collection('projects').getFullList({ sort: '-created' }),
-        pb.collection('samples').getFullList({ sort: '-created' }),
-        pb.collection('patterns').getFullList({ sort: '-created' }),
-      ]);
-      console.log('2. Сырые данные получены успешно');
-
+      console.log('1. Загружаем пряжу...');
+      const yarnsData = await pb.collection('yarns').getFullList({ sort: '-created' });
+      console.log('✅ Пряжа загружена:', yarnsData.length);
       setYarns(yarnsData as any);
-      setSamples(samplesData as any);
 
-      // БЕЗОПАСНАЯ обработка проектов
+      console.log('2. Загружаем проекты...');
+      const projectsData = await pb.collection('projects').getFullList({ sort: '-created' });
+      console.log('✅ Проекты загружены:', projectsData.length);
+      
       const parsedProjects = projectsData.map((p: any) => {
-        // Защита: если photos это не массив, делаем пустой массив
         const photosArray = Array.isArray(p.photos) ? p.photos : [];
-        const photosUrls = photosArray.map((filename: string) => pb.files.getURL(p, filename));
-
         let yarnUsagesParsed: any[] = [];
         if (typeof p.yarnUsages === 'string') {
-          try { yarnUsagesParsed = JSON.parse(p.yarnUsages); } 
-          catch (e) { yarnUsagesParsed = []; }
+          try { yarnUsagesParsed = JSON.parse(p.yarnUsages); } catch (e) { yarnUsagesParsed = []; }
         } else if (Array.isArray(p.yarnUsages)) {
           yarnUsagesParsed = p.yarnUsages;
         }
-
-        return { ...p, photos: photosUrls, yarnUsages: yarnUsagesParsed };
+        return { 
+          ...p, 
+          photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)), 
+          yarnUsages: yarnUsagesParsed 
+        };
       });
       setProjects(parsedProjects);
-      console.log('3. Проекты успешно обработаны');
 
-      // БЕЗОПАСНАЯ обработка схем
+      console.log('3. Загружаем образцы...');
+      const samplesData = await pb.collection('samples').getFullList({ sort: '-created' });
+      console.log('✅ Образцы загружены:', samplesData.length);
+      setSamples(samplesData as any);
+
+      console.log('4. Загружаем схемы...');
+      const patternsData = await pb.collection('patterns').getFullList({ sort: '-created' });
+      console.log('✅ Схемы загружены:', patternsData.length);
+      
       const parsedPatterns = patternsData.map((p: any) => {
         const photosArray = Array.isArray(p.photos) ? p.photos : [];
         const pdfsArray = Array.isArray(p.pdfs) ? p.pdfs : [];
-
         return {
           ...p,
           photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)),
@@ -153,17 +155,17 @@ function App() {
         };
       });
       setPatterns(parsedPatterns);
-      console.log('4. Схемы успешно обработаны. Загрузка завершена!');
 
+      console.log('🟢 ВСЕ ДАННЫЕ УСПЕШНО ЗАГРУЖЕНЫ');
     } catch (error) {
-      console.error('!!! КРИТИЧЕСКАЯ ОШИБКА ЗАГРУЗКИ !!!', error);
-      // На iPhone alert иногда не виден, но в консоли мы это увидим
-      alert('Ошибка загрузки данных: ' + (error as Error).message);
+      console.error('🔴 КРИТИЧЕСКАЯ ОШИБКА ПРИ ЗАГРУЗКЕ:', error);
+      alert('Ошибка загрузки: ' + (error as Error).message);
     } finally {
-      console.log('5. Выключаем экран загрузки (setDataLoading(false))');
+      console.log('🟢 ВЫКЛЮЧАЕМ ЭКРАН ЗАГРУЗКИ');
       setDataLoading(false);
     }
   };
+  
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
