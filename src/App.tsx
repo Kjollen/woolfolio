@@ -107,7 +107,7 @@ function App() {
     }
   }, [user]);
 
-  const loadData = async () => {
+    const loadData = async () => {
     setDataLoading(true);
     try {
       const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
@@ -120,26 +120,38 @@ function App() {
       setYarns(yarnsData as any);
       setSamples(samplesData as any);
 
-      // 1. Проекты: превращаем имена файлов в полные URL
-      const parsedProjects = projectsData.map((p: any) => ({
-        ...p,
-        // Если photos есть, берем каждый файл и строим ссылку через pb.files.getURL
-        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-        // yarnUsages пока оставляем как JSON-строку (если поле Text)
-        yarnUsages: typeof p.yarnUsages === 'string' ? JSON.parse(p.yarnUsages) : (p.yarnUsages || []),
-      }));
+      // 1. Проекты: БЕЗОПАСНЫЙ парсинг
+      const parsedProjects = projectsData.map((p: any) => {
+        // Если yarnUsages null или undefined, принудительно делаем []
+        let safeYarnUsages = [];
+        if (p.yarnUsages) {
+          if (typeof p.yarnUsages === 'string') {
+            try { safeYarnUsages = JSON.parse(p.yarnUsages); } 
+            catch (e) { safeYarnUsages = []; }
+          } else if (Array.isArray(p.yarnUsages)) {
+            safeYarnUsages = p.yarnUsages;
+          }
+        }
+
+        return {
+          ...p,
+          photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+          yarnUsages: safeYarnUsages,
+        };
+      });
       setProjects(parsedProjects);
 
-      // 2. Схемы: превращаем имена файлов в полные URL
+      // 2. Схемы: БЕЗОПАСНЫЙ парсинг
       const parsedPatterns = patternsData.map((p: any) => ({
         ...p,
-        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-        pdfs: p.pdfs ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        pdfs: Array.isArray(p.pdfs) ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
       }));
       setPatterns(parsedPatterns);
 
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
+      // На iPhone alert может не показаться, но в консоли мы это увидим
     } finally {
       setDataLoading(false);
     }
