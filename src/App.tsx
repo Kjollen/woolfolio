@@ -107,57 +107,64 @@ function App() {
     }
   }, [user]);
 
-    const loadData = async () => {
-  setDataLoading(true);
-  try {
-    const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-      pb.collection('yarns').getFullList({ sort: '-created' }),
-      pb.collection('projects').getFullList({ sort: '-created' }),
-      pb.collection('samples').getFullList({ sort: '-created' }),
-      pb.collection('patterns').getFullList({ sort: '-created' }),
-    ]);
+  const loadData = async () => {
+    setDataLoading(true);
+    try {
+      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+        pb.collection('yarns').getFullList({ sort: '-created' }),
+        pb.collection('projects').getFullList({ sort: '-created' }),
+        pb.collection('samples').getFullList({ sort: '-created' }),
+        pb.collection('patterns').getFullList({ sort: '-created' }),
+      ]);
 
-    setYarns(yarnsData as any);
-    setSamples(samplesData as any);
+      setYarns(yarnsData as any);
+      setSamples(samplesData as any);
 
-    // БЕЗОПАСНАЯ обработка проектов (с проверкой на null)
-    const parsedProjects = (projectsData || []).map((p: any) => {
-      if (!p) return null; // Пропускаем null записи
-      const photosArray = Array.isArray(p.photos) ? p.photos : [];
-      let yarnUsagesParsed: any[] = [];
-      if (typeof p.yarnUsages === 'string') {
-        try { yarnUsagesParsed = JSON.parse(p.yarnUsages); } 
-        catch (e) { yarnUsagesParsed = []; }
-      } else if (Array.isArray(p.yarnUsages)) {
-        yarnUsagesParsed = p.yarnUsages;
-      }
-      return { 
-        ...p, 
-        photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)), 
-        yarnUsages: yarnUsagesParsed 
-      };
-    }).filter(p => p !== null); // Убираем null из результата
-    setProjects(parsedProjects);
-
-    // БЕЗОПАСНАЯ обработка схем
-    const parsedPatterns = (patternsData || []).map((p: any) => {
-      if (!p) return null;
-      const photosArray = Array.isArray(p.photos) ? p.photos : [];
-      const pdfsArray = Array.isArray(p.pdfs) ? p.pdfs : [];
-      return {
+      // 1. Проекты: превращаем имена файлов в полные URL
+      const parsedProjects = projectsData.map((p: any) => ({
         ...p,
-        photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)),
-        pdfs: pdfsArray.map((filename: string) => pb.files.getURL(p, filename)),
-      };
-    }).filter(p => p !== null);
-    setPatterns(parsedPatterns);
+        // Если photos есть, берем каждый файл и строим ссылку через pb.files.getURL
+        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        // yarnUsages пока оставляем как JSON-строку (если поле Text)
+        yarnUsages: typeof p.yarnUsages === 'string' ? JSON.parse(p.yarnUsages) : (p.yarnUsages || []),
+      }));
+      setProjects(parsedProjects);
 
-  } catch (error) {
-    console.error('Ошибка загрузки данных:', error);
-  } finally {
-    setDataLoading(false);
+      // 2. Схемы: превращаем имена файлов в полные URL
+      const parsedPatterns = patternsData.map((p: any) => ({
+        ...p,
+        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        pdfs: p.pdfs ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
+      }));
+      setPatterns(parsedPatterns);
+
+    } catch (error) {
+      console.error('Ошибка загрузки данных:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  // Автоскролл наверх при переключении раздела
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeSection]);
+
+  // Экран загрузки
+  if (authLoading || dataLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
+      </div>
+    );
   }
-};
+
+  if (!user) {
+    return <AuthScreen />;
+  }
   
   const renderSection = () => {
     switch (activeSection) {
