@@ -108,6 +108,7 @@ function App() {
   }, [user]);
 
       const loadData = async () => {
+    console.log('1. Начало загрузки данных из PocketBase...');
     setDataLoading(true);
     try {
       const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
@@ -116,56 +117,53 @@ function App() {
         pb.collection('samples').getFullList({ sort: '-created' }),
         pb.collection('patterns').getFullList({ sort: '-created' }),
       ]);
+      console.log('2. Сырые данные получены успешно');
 
       setYarns(yarnsData as any);
       setSamples(samplesData as any);
 
-      // 1. Проекты: превращаем имена файлов в полные URL
-      const parsedProjects = projectsData.map((p: any) => ({
-        ...p,
-        // Если photos есть, берем каждый файл и строим ссылку через pb.files.getURL
-        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-        // yarnUsages пока оставляем как JSON-строку (если поле Text)
-        yarnUsages: typeof p.yarnUsages === 'string' ? JSON.parse(p.yarnUsages) : (p.yarnUsages || []),
-      }));
-      setProjects(parsedProjects);
+      // БЕЗОПАСНАЯ обработка проектов
+      const parsedProjects = projectsData.map((p: any) => {
+        // Защита: если photos это не массив, делаем пустой массив
+        const photosArray = Array.isArray(p.photos) ? p.photos : [];
+        const photosUrls = photosArray.map((filename: string) => pb.files.getURL(p, filename));
 
-      // 2. Схемы: превращаем имена файлов в полные URL
-      const parsedPatterns = patternsData.map((p: any) => ({
-        ...p,
-        photos: p.photos ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-        pdfs: p.pdfs ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
-      }));
+        let yarnUsagesParsed: any[] = [];
+        if (typeof p.yarnUsages === 'string') {
+          try { yarnUsagesParsed = JSON.parse(p.yarnUsages); } 
+          catch (e) { yarnUsagesParsed = []; }
+        } else if (Array.isArray(p.yarnUsages)) {
+          yarnUsagesParsed = p.yarnUsages;
+        }
+
+        return { ...p, photos: photosUrls, yarnUsages: yarnUsagesParsed };
+      });
+      setProjects(parsedProjects);
+      console.log('3. Проекты успешно обработаны');
+
+      // БЕЗОПАСНАЯ обработка схем
+      const parsedPatterns = patternsData.map((p: any) => {
+        const photosArray = Array.isArray(p.photos) ? p.photos : [];
+        const pdfsArray = Array.isArray(p.pdfs) ? p.pdfs : [];
+
+        return {
+          ...p,
+          photos: photosArray.map((filename: string) => pb.files.getURL(p, filename)),
+          pdfs: pdfsArray.map((filename: string) => pb.files.getURL(p, filename)),
+        };
+      });
       setPatterns(parsedPatterns);
+      console.log('4. Схемы успешно обработаны. Загрузка завершена!');
 
     } catch (error) {
-      console.error('Ошибка загрузки данных:', error);
+      console.error('!!! КРИТИЧЕСКАЯ ОШИБКА ЗАГРУЗКИ !!!', error);
+      // На iPhone alert иногда не виден, но в консоли мы это увидим
+      alert('Ошибка загрузки данных: ' + (error as Error).message);
     } finally {
+      console.log('5. Выключаем экран загрузки (setDataLoading(false))');
       setDataLoading(false);
     }
   };
-
-  // Автоскролл наверх при переключении раздела
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (mainRef.current) {
-      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [activeSection]);
-
-  // Экран загрузки
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500"></i>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthScreen />;
-  }
-
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
