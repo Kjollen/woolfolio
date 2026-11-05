@@ -111,20 +111,26 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                   <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Файлы</h3>
                   <div className="space-y-2">
                     {selectedPattern.pdfs.map((pdf, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-red-50 rounded-lg p-3 hover:bg-red-100 transition-colors cursor-pointer">
+                      <a
+                        key={i}
+                        href={pdf}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 bg-red-50 rounded-lg p-3 hover:bg-red-100 transition-colors"
+                      >
                         <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                           <i className="fas fa-file-pdf text-red-500"></i>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-700">{pdf}</p>
-                          <p className="text-xs text-gray-400">PDF документ</p>
-                        </div>
-                        <i className="fas fa-download text-gray-400"></i>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-700 truncate">PDF документ #{i + 1}</p>
+                          <p className="text-xs text-emerald-600">Нажмите, чтобы открыть</p>
+                       </div>
+                       <i className="fas fa-external-link-alt text-gray-400"></i>
+                     </a>
+                   ))}
+                 </div>
+               </div>
+             )}
 
               {/* Link */}
               {selectedPattern.link && (
