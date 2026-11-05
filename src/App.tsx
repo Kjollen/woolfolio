@@ -311,6 +311,20 @@ const updateRecord = async (collectionName: string, recordId: string, data: any)
   return response.json();
 };
 
+// Вспомогательная функция для конвертации base64 в File
+const base64ToFile = (base64: string, filename: string): File => {
+  const arr = base64.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
 const handleUpdateProject = async (updatedProject: Project) => {
   try {
     const originalProject = projects.find(p => p.id === updatedProject.id);
@@ -343,7 +357,6 @@ const handleUpdateProject = async (updatedProject: Project) => {
     }
 
     // ШАГ 2: Обновляем запись с новым списком файлов
-    // PocketBase должен сам удалить файлы, которых нет в списке
     await pb.collection('projects').update(updatedProject.id, {
       name: updatedProject.name,
       stage: updatedProject.stage,
@@ -352,7 +365,7 @@ const handleUpdateProject = async (updatedProject: Project) => {
       endDate: updatedProject.endDate,
       notes: updatedProject.notes,
       yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-      photos: remainingPhotos // Только оставшиеся файлы
+      photos: remainingPhotos
     });
     
     console.log('Запись обновлена');
@@ -360,6 +373,77 @@ const handleUpdateProject = async (updatedProject: Project) => {
     setEditingProject(null);
   } catch (error: any) {
     console.error('Ошибка обновления проекта:', error);
+    console.error('Детали ошибки:', error.data);
+    alert(error.message || 'Не удалось сохранить изменения');
+  }
+};
+
+const handleUpdatePattern = async (updatedPattern: Pattern) => {
+  try {
+    const originalPattern = patterns.find(p => p.id === updatedPattern.id);
+    const originalPhotos = originalPattern?.photos || [];
+    const originalPdfs = originalPattern?.pdfs || [];
+
+    const deletedPhotos = originalPhotos.filter(p => !updatedPattern.photos.includes(p));
+    const deletedPdfs = originalPdfs.filter(p => !updatedPattern.pdfs.includes(p));
+    const newPhotos = updatedPattern.photos.filter(p => p.startsWith('data:'));
+    const newPdfs = updatedPattern.pdfs.filter(p => p.startsWith('data:'));
+
+    console.log('=== ОБНОВЛЕНИЕ СХЕМЫ ===');
+    console.log('Удаляем фото:', deletedPhotos.length, 'шт');
+    console.log('Удаляем PDF:', deletedPdfs.length, 'шт');
+    console.log('Новые фото:', newPhotos.length, 'шт');
+    console.log('Новые PDF:', newPdfs.length, 'шт');
+
+    // Получаем списки оставшихся файлов
+    const remainingPhotos = updatedPattern.photos
+      .filter(p => !p.startsWith('data:'))
+      .map(url => url.split('/').pop() || url);
+
+    const remainingPdfs = updatedPattern.pdfs
+      .filter(p => !p.startsWith('data:'))
+      .map(url => url.split('/').pop() || url);
+
+    console.log('Оставшиеся фото:', remainingPhotos);
+    console.log('Оставшиеся PDF:', remainingPdfs);
+
+    // ШАГ 1: Загружаем новые фото (если есть)
+    if (newPhotos.length > 0) {
+      const formData = new FormData();
+      newPhotos.forEach((photo, index) => {
+        const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
+        formData.append('photos', file);
+      });
+      
+      await pb.collection('patterns').update(updatedPattern.id, formData);
+      console.log('Новые фото загружены');
+    }
+
+    // ШАГ 2: Загружаем новые PDF (если есть)
+    if (newPdfs.length > 0) {
+      const formData = new FormData();
+      newPdfs.forEach((pdf, index) => {
+        const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
+        formData.append('pdfs', file);
+      });
+      
+      await pb.collection('patterns').update(updatedPattern.id, formData);
+      console.log('Новые PDF загружены');
+    }
+
+    // ШАГ 3: Обновляем запись с новыми списками файлов
+    await pb.collection('patterns').update(updatedPattern.id, {
+      name: updatedPattern.name,
+      link: updatedPattern.link || '',
+      photos: remainingPhotos,
+      pdfs: remainingPdfs
+    });
+    
+    console.log('Запись обновлена');
+    await loadData();
+    setEditingPattern(null);
+  } catch (error: any) {
+    console.error('Ошибка обновления схемы:', error);
     console.error('Детали ошибки:', error.data);
     alert(error.message || 'Не удалось сохранить изменения');
   }
