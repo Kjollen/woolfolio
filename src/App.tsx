@@ -323,25 +323,43 @@ const handleUpdateProject = async (updatedProject: Project) => {
     console.log('Удаляем фото:', deletedPhotos.length, 'шт');
     console.log('Новые фото:', newPhotos.length, 'шт');
 
-    // ШАГ 1: Удаляем старые файлы через JSON запрос
+    // ШАГ 1: Удаляем старые файлы
     if (deletedPhotos.length > 0) {
-      const filenames = deletedPhotos.map(url => url.split('/').pop() || url);
-      console.log('Удаляем файлы:', filenames);
-      await deleteFiles('projects', updatedProject.id, 'photos', filenames);
+      const filenames = deletedPhotos.map(url => {
+        const parts = url.split('/');
+        return '-' + parts[parts.length - 1];
+      });
+      console.log('Отправляем на удаление:', filenames);
+      
+      // Используем pb.send() напрямую
+      await pb.send(`/api/collections/projects/records/${updatedProject.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ photos: filenames }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       console.log('Файлы удалены');
     }
 
-    // ШАГ 2: Загружаем новые файлы через FormData
+    // ШАГ 2: Загружаем новые файлы
     if (newPhotos.length > 0) {
       const files = newPhotos.map((photo, index) => base64ToFile(photo, `project_photo_${index}.jpg`));
       console.log('Загружаем файлов:', files.length);
-      await uploadFiles('projects', updatedProject.id, 'photos', files);
+      
+      const formData = new FormData();
+      files.forEach(file => formData.append('photos', file));
+      
+      await pb.send(`/api/collections/projects/records/${updatedProject.id}`, {
+        method: 'PATCH',
+        body: formData
+      });
       console.log('Файлы загружены');
     }
 
-    // ШАГ 3: Обновляем текстовые поля через JSON
+    // ШАГ 3: Обновляем текстовые поля
     console.log('Обновляем текстовые поля...');
-    await updateRecord('projects', updatedProject.id, {
+    await pb.collection('projects').update(updatedProject.id, {
       name: updatedProject.name,
       stage: updatedProject.stage,
       needleSize: updatedProject.needleSize,
@@ -380,30 +398,62 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
 
     // ШАГ 1: Удаляем старые фото
     if (deletedPhotos.length > 0) {
-      const filenames = deletedPhotos.map(url => url.split('/').pop() || url);
-      await deleteFiles('patterns', updatedPattern.id, 'photos', filenames);
+      const filenames = deletedPhotos.map(url => {
+        const parts = url.split('/');
+        return '-' + parts[parts.length - 1];
+      });
+      
+      await pb.send(`/api/collections/patterns/records/${updatedPattern.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ photos: filenames }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // ШАГ 2: Удаляем старые PDF
     if (deletedPdfs.length > 0) {
-      const filenames = deletedPdfs.map(url => url.split('/').pop() || url);
-      await deleteFiles('patterns', updatedPattern.id, 'pdfs', filenames);
+      const filenames = deletedPdfs.map(url => {
+        const parts = url.split('/');
+        return '-' + parts[parts.length - 1];
+      });
+      
+      await pb.send(`/api/collections/patterns/records/${updatedPattern.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pdfs: filenames }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // ШАГ 3: Загружаем новые фото
     if (newPhotos.length > 0) {
       const files = newPhotos.map((photo, index) => base64ToFile(photo, `pattern_photo_${index}.jpg`));
-      await uploadFiles('patterns', updatedPattern.id, 'photos', files);
+      const formData = new FormData();
+      files.forEach(file => formData.append('photos', file));
+      
+      await pb.send(`/api/collections/patterns/records/${updatedPattern.id}`, {
+        method: 'PATCH',
+        body: formData
+      });
     }
 
     // ШАГ 4: Загружаем новые PDF
     if (newPdfs.length > 0) {
       const files = newPdfs.map((pdf, index) => base64ToFile(pdf, `pattern_doc_${index}.pdf`));
-      await uploadFiles('patterns', updatedPattern.id, 'pdfs', files);
+      const formData = new FormData();
+      files.forEach(file => formData.append('pdfs', file));
+      
+      await pb.send(`/api/collections/patterns/records/${updatedPattern.id}`, {
+        method: 'PATCH',
+        body: formData
+      });
     }
 
     // ШАГ 5: Обновляем текстовые поля
-    await updateRecord('patterns', updatedPattern.id, {
+    await pb.collection('patterns').update(updatedPattern.id, {
       name: updatedPattern.name,
       link: updatedPattern.link || '',
     });
