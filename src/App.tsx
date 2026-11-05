@@ -235,80 +235,114 @@ function App() {
 };
 
     const handleUpdateProject = async (updatedProject: Project) => {
-    try {
-      const payload: any = {
-        name: updatedProject.name,
-        stage: updatedProject.stage,
-        needleSize: updatedProject.needleSize,
-        startDate: updatedProject.startDate,
-        endDate: updatedProject.endDate,
-        notes: updatedProject.notes,
-        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-      };
+  try {
+    const payload: any = {
+      name: updatedProject.name,
+      stage: updatedProject.stage,
+      needleSize: updatedProject.needleSize,
+      startDate: updatedProject.startDate,
+      endDate: updatedProject.endDate,
+      notes: updatedProject.notes,
+      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+    };
 
-      // Новые фото с проверкой размера (15 МБ)
-      const newPhotos = updatedProject.photos
-        .filter((p) => p.startsWith('data:'))
-        .map((p, i) => {
-          const file = base64ToFile(p, `project_photo_${i}.jpg`);
-          if (file.size > 15 * 1024 * 1024) {
-            throw new Error(`Фото слишком большое (${(file.size / 1024 / 1024).toFixed(2)} МБ). Максимум 15 МБ.`);
-          }
-          return file;
-        });
+    // Получаем оригинальный проект из стейта
+    const originalProject = projects.find(p => p.id === updatedProject.id);
+    const originalPhotos = originalProject?.photos || [];
 
-      if (newPhotos.length > 0) payload.photos = newPhotos;
+    // Определяем, какие фото были удалены
+    const deletedPhotos = originalPhotos.filter(
+      p => !updatedProject.photos.includes(p)
+    );
 
-      const updated = await pb.collection('projects').update(updatedProject.id, payload);
-      await loadData();
-      setEditingProject(null);
-    } catch (error: any) {
-      console.error('Ошибка обновления проекта:', error);
-      alert(error.message || 'Не удалось сохранить изменения');
+    // Новые фото (base64)
+    const newPhotos = updatedProject.photos
+      .filter((p) => p.startsWith('data:'))
+      .map((p, i) => base64ToFile(p, `project_photo_${i}.jpg`));
+
+    // Если все фото удалены - очищаем поле
+    if (updatedProject.photos.length === 0 && originalPhotos.length > 0) {
+      payload.photos = "";
+    } else if (deletedPhotos.length > 0 || newPhotos.length > 0) {
+      // Формируем список: удалённые файлы (с префиксом -) + новые файлы
+      const filesToDelete = deletedPhotos.map(p => {
+        // Извлекаем имя файла из URL PocketBase
+        const filename = p.split('/').pop() || p;
+        return `-${filename}`;
+      });
+      
+      payload.photos = [...filesToDelete, ...newPhotos];
     }
-  };
+
+    const updated = await pb.collection('projects').update(updatedProject.id, payload);
+    await loadData();
+    setEditingProject(null);
+  } catch (error: any) {
+    console.error('Ошибка обновления проекта:', error);
+    alert(error.message || 'Не удалось сохранить изменения');
+  }
+};
 
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
-    try {
-      const payload: any = {
-        name: updatedPattern.name,
-        link: updatedPattern.link,
-      };
+  try {
+    const payload: any = {
+      name: updatedPattern.name,
+      link: updatedPattern.link,
+    };
 
-      // Новые фото с проверкой размера (15 МБ)
-      const newPhotos = updatedPattern.photos
-        .filter((p) => p.startsWith('data:'))
-        .map((p, i) => {
-          const file = base64ToFile(p, `pattern_photo_${i}.jpg`);
-          if (file.size > 15 * 1024 * 1024) {
-            throw new Error(`Фото слишком большое (${(file.size / 1024 / 1024).toFixed(2)} МБ). Максимум 15 МБ.`);
-          }
-          return file;
-        });
+    // Получаем оригинальную схему из стейта
+    const originalPattern = patterns.find(p => p.id === updatedPattern.id);
+    const originalPhotos = originalPattern?.photos || [];
+    const originalPdfs = originalPattern?.pdfs || [];
 
-      // Новые PDF с проверкой размера (15 МБ)
-      const newPdfs = updatedPattern.pdfs
-        .filter((p) => p.startsWith('data:'))
-        .map((p, i) => {
-          const file = base64ToFile(p, `pattern_doc_${i}.pdf`);
-          if (file.size > 15 * 1024 * 1024) {
-            throw new Error(`PDF файл слишком большой (${(file.size / 1024 / 1024).toFixed(2)} МБ). Максимум 15 МБ.`);
-          }
-          return file;
-        });
+    // Определяем, какие файлы были удалены
+    const deletedPhotos = originalPhotos.filter(
+      p => !updatedPattern.photos.includes(p)
+    );
+    const deletedPdfs = originalPdfs.filter(
+      p => !updatedPattern.pdfs.includes(p)
+    );
 
-      if (newPhotos.length > 0) payload.photos = newPhotos;
-      if (newPdfs.length > 0) payload.pdfs = newPdfs;
+    // Новые фото (base64)
+    const newPhotos = updatedPattern.photos
+      .filter((p) => p.startsWith('data:'))
+      .map((p, i) => base64ToFile(p, `pattern_photo_${i}.jpg`));
 
-      const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
-      
-      await loadData();
-      setEditingPattern(null);
-    } catch (error: any) {
-      console.error('Ошибка обновления схемы:', error);
-      alert(error.message || 'Не удалось сохранить изменения');
+    // Новые PDF (base64)
+    const newPdfs = updatedPattern.pdfs
+      .filter((p) => p.startsWith('data:'))
+      .map((p, i) => base64ToFile(p, `pattern_doc_${i}.pdf`));
+
+    // Обработка фото
+    if (updatedPattern.photos.length === 0 && originalPhotos.length > 0) {
+      payload.photos = "";
+    } else if (deletedPhotos.length > 0 || newPhotos.length > 0) {
+      const filesToDelete = deletedPhotos.map(p => {
+        const filename = p.split('/').pop() || p;
+        return `-${filename}`;
+      });
+      payload.photos = [...filesToDelete, ...newPhotos];
     }
-  };
+
+    // Обработка PDF
+    if (updatedPattern.pdfs.length === 0 && originalPdfs.length > 0) {
+      payload.pdfs = "";
+    } else if (deletedPdfs.length > 0 || newPdfs.length > 0) {
+      const filesToDelete = deletedPdfs.map(p => {
+        const filename = p.split('/').pop() || p;
+        return `-${filename}`;
+      });
+      payload.pdfs = [...filesToDelete, ...newPdfs];
+    }
+
+    const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
+    await loadData();
+    setEditingPattern(null);
+  } catch (error: any) {
+    console.error('Ошибка обновления схемы:', error);
+    alert(error.message || 'Не удалось сохранить изменения');
+  }
+};
 
 
   const handleSaveProject = async (project: Project) => {
