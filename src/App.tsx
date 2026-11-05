@@ -239,42 +239,33 @@ const handleUpdateProject = async (updatedProject: Project) => {
     const originalProject = projects.find(p => p.id === updatedProject.id);
     const originalPhotos = originalProject?.photos || [];
 
-    // Определяем удалённые и новые фото
     const deletedPhotos = originalPhotos.filter(p => !updatedProject.photos.includes(p));
     const newPhotos = updatedProject.photos.filter((p) => p.startsWith('data:'));
 
-    // Если есть файлы для удаления - удаляем их отдельно
-    if (deletedPhotos.length > 0) {
-      const deletePayload = new FormData();
-      deletedPhotos.forEach(p => {
-        const filename = p.split('/').pop() || p;
-        deletePayload.append('photos', `-${filename}`);
-      });
-      await pb.collection('projects').update(updatedProject.id, deletePayload);
-    }
+    const formData = new FormData();
+    
+    // Текстовые поля
+    formData.append('name', updatedProject.name);
+    formData.append('stage', updatedProject.stage);
+    formData.append('needleSize', String(updatedProject.needleSize));
+    formData.append('startDate', updatedProject.startDate || '');
+    formData.append('endDate', updatedProject.endDate || '');
+    formData.append('notes', updatedProject.notes || '');
+    formData.append('yarnUsages', JSON.stringify(updatedProject.yarnUsages || []));
 
-    // Если есть новые файлы - загружаем их отдельно
-    if (newPhotos.length > 0) {
-      const uploadPayload = new FormData();
-      newPhotos.forEach((p, i) => {
-        const file = base64ToFile(p, `project_photo_${i}.jpg`);
-        uploadPayload.append('photos', file);
-      });
-      await pb.collection('projects').update(updatedProject.id, uploadPayload);
-    }
+    // Файлы для удаления
+    deletedPhotos.forEach(p => {
+      const filename = p.split('/').pop() || p;
+      formData.append('photos', `-${filename}`);
+    });
 
-    // Обновляем остальные текстовые поля
-    const textPayload = {
-      name: updatedProject.name,
-      stage: updatedProject.stage,
-      needleSize: updatedProject.needleSize,
-      startDate: updatedProject.startDate,
-      endDate: updatedProject.endDate,
-      notes: updatedProject.notes,
-      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-    };
-    await pb.collection('projects').update(updatedProject.id, textPayload);
+    // Новые файлы
+    newPhotos.forEach((p, i) => {
+      const file = base64ToFile(p, `project_photo_${i}.jpg`);
+      formData.append('photos', file);
+    });
 
+    await pb.collection('projects').update(updatedProject.id, formData);
     await loadData();
     setEditingProject(null);
   } catch (error: any) {
@@ -283,65 +274,50 @@ const handleUpdateProject = async (updatedProject: Project) => {
   }
 };
 
-  const handleUpdatePattern = async (updatedPattern: Pattern) => {
+const handleUpdatePattern = async (updatedPattern: Pattern) => {
   try {
     const originalPattern = patterns.find(p => p.id === updatedPattern.id);
     const originalPhotos = originalPattern?.photos || [];
     const originalPdfs = originalPattern?.pdfs || [];
 
-    // Определяем удалённые и новые файлы
     const deletedPhotos = originalPhotos.filter(p => !updatedPattern.photos.includes(p));
     const newPhotos = updatedPattern.photos.filter((p) => p.startsWith('data:'));
     const deletedPdfs = originalPdfs.filter(p => !updatedPattern.pdfs.includes(p));
     const newPdfs = updatedPattern.pdfs.filter((p) => p.startsWith('data:'));
 
-    // Удаляем старые фото
-    if (deletedPhotos.length > 0) {
-      const deletePayload = new FormData();
-      deletedPhotos.forEach(p => {
-        const filename = p.split('/').pop() || p;
-        deletePayload.append('photos', `-${filename}`);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, deletePayload);
+    const formData = new FormData();
+    
+    // Текстовые поля
+    formData.append('name', updatedPattern.name);
+    if (updatedPattern.link) {
+      formData.append('link', updatedPattern.link);
     }
 
-    // Загружаем новые фото
-    if (newPhotos.length > 0) {
-      const uploadPayload = new FormData();
-      newPhotos.forEach((p, i) => {
-        const file = base64ToFile(p, `pattern_photo_${i}.jpg`);
-        uploadPayload.append('photos', file);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, uploadPayload);
-    }
+    // Фото для удаления
+    deletedPhotos.forEach(p => {
+      const filename = p.split('/').pop() || p;
+      formData.append('photos', `-${filename}`);
+    });
 
-    // Удаляем старые PDF
-    if (deletedPdfs.length > 0) {
-      const deletePayload = new FormData();
-      deletedPdfs.forEach(p => {
-        const filename = p.split('/').pop() || p;
-        deletePayload.append('pdfs', `-${filename}`);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, deletePayload);
-    }
+    // Новые фото
+    newPhotos.forEach((p, i) => {
+      const file = base64ToFile(p, `pattern_photo_${i}.jpg`);
+      formData.append('photos', file);
+    });
 
-    // Загружаем новые PDF
-    if (newPdfs.length > 0) {
-      const uploadPayload = new FormData();
-      newPdfs.forEach((p, i) => {
-        const file = base64ToFile(p, `pattern_doc_${i}.pdf`);
-        uploadPayload.append('pdfs', file);
-      });
-      await pb.collection('patterns').update(updatedPattern.id, uploadPayload);
-    }
+    // PDF для удаления
+    deletedPdfs.forEach(p => {
+      const filename = p.split('/').pop() || p;
+      formData.append('pdfs', `-${filename}`);
+    });
 
-    // Обновляем текстовые поля
-    const textPayload = {
-      name: updatedPattern.name,
-      link: updatedPattern.link || '',
-    };
-    await pb.collection('patterns').update(updatedPattern.id, textPayload);
+    // Новые PDF
+    newPdfs.forEach((p, i) => {
+      const file = base64ToFile(p, `pattern_doc_${i}.pdf`);
+      formData.append('pdfs', file);
+    });
 
+    await pb.collection('patterns').update(updatedPattern.id, formData);
     await loadData();
     setEditingPattern(null);
   } catch (error: any) {
@@ -349,7 +325,6 @@ const handleUpdateProject = async (updatedProject: Project) => {
     alert(error.message || 'Не удалось сохранить изменения');
   }
 };
-
   const handleSaveProject = async (project: Project) => {
     try {
       const created = await pb.collection('projects').create(project);
