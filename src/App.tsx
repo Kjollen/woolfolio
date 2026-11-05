@@ -267,36 +267,42 @@ function App() {
     }
   };
 
-  const handleUpdatePattern = async (updatedPattern: Pattern) => {
-    try {
-      const payload: any = {
-        name: updatedPattern.name,
-        link: updatedPattern.link,
-      };
+const handleUpdatePattern = async (updatedPattern: Pattern) => {
+  try {
+    const payload: any = {
+      name: updatedPattern.name,
+      link: updatedPattern.link,
+    };
 
-      // Новые фото
-      const newPhotos = updatedPattern.photos
-        .filter((p) => p.startsWith('data:'))
-        .map((p, i) => base64ToFile(p, `pattern_photo_${i}.jpg`));
-      
-      // Новые PDF
-      const newPdfs = updatedPattern.pdfs
-        .filter((p) => p.startsWith('data:'))
-        .map((p, i) => base64ToFile(p, `pattern_doc_${i}.pdf`));
+    // Новые фото
+    const newPhotos = updatedPattern.photos
+      .filter((p) => p.startsWith('data:'))
+      .map((p, i) => base64ToFile(p, `pattern_photo_${i}.jpg`));
 
-      if (newPhotos.length > 0) payload.photos = newPhotos;
-      if (newPdfs.length > 0) payload.pdfs = newPdfs;
+    // Новые PDF с проверкой размера
+    const newPdfs = updatedPattern.pdfs
+      .filter((p) => p.startsWith('data:'))
+      .map((p, i) => {
+        const file = base64ToFile(p, `pattern_doc_${i}.pdf`);
+        // Проверяем размер (5 МБ = 5 * 1024 * 1024 байт)
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(`PDF файл слишком большой (${(file.size / 1024 / 1024).toFixed(2)} МБ). Максимум 5 МБ.`);
+        }
+        return file;
+      });
 
-      const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
-      
-      // После сохранения обновляем локальный стейт
-      await loadData();
-      setEditingPattern(null);
-    } catch (error) {
-      console.error('Ошибка обновления схемы:', error);
-      alert('Не удалось сохранить изменения');
-    }
-  };
+    if (newPhotos.length > 0) payload.photos = newPhotos;
+    if (newPdfs.length > 0) payload.pdfs = newPdfs;
+
+    const updated = await pb.collection('patterns').update(updatedPattern.id, payload);
+    
+    await loadData();
+    setEditingPattern(null);
+  } catch (error: any) {
+    console.error('Ошибка обновления схемы:', error);
+    alert(error.message || 'Не удалось сохранить изменения');
+  }
+};
 
 
   const handleSaveProject = async (project: Project) => {
