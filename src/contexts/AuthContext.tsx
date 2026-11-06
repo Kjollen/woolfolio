@@ -22,8 +22,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Восстановление сессии при загрузке
+  // Функция восстановления сессии из cookie/localStorage
+  const restoreAuth = () => {
+    // Восстанавливаем токен из cookie (PocketBase хранит его там)
+    pb.authStore.loadFromCookie(document.cookie);
+    
+    // Также пробуем из localStorage (на случай если cookie не сработали)
+    const savedToken = localStorage.getItem('pb_auth');
+    if (savedToken) {
+      try {
+        const authData = JSON.parse(savedToken);
+        pb.authStore.save(authData.token, authData.model);
+      } catch (e) {
+        console.error('Ошибка восстановления из localStorage:', e);
+      }
+    }
+
     if (pb.authStore.isValid) {
       const authUser = pb.authStore.model;
       if (authUser) {
@@ -33,22 +47,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: authUser.name || authUser.email,
           createdAt: authUser.created,
         });
+        console.log('✅ Сессия восстановлена:', authUser.email);
       }
+    } else {
+      console.log('⚠️ Сессия не найдена, пользователь не авторизован');
     }
+  };
+
+  useEffect(() => {
+    // Восстановление сессии при загрузке страницы
+    restoreAuth();
     setIsLoading(false);
   }, []);
+
+  // Сохраняем токен при каждом изменении authStore
+  useEffect(() => {
+    if (pb.authStore.isValid && pb.authStore.model) {
+      // Сохраняем в cookie
+      pb.authStore.bindAuthCookie(document.cookie);
+      
+      // Сохраняем в localStorage
+      localStorage.setItem('pb_auth', JSON.stringify({
+        token: pb.authStore.token,
+        model: pb.authStore.model,
+      }));
+    } else {
+      localStorage.removeItem('pb_auth');
+    }
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       const authData = await pb.collection('users').authWithPassword(email, password);
       const authUser = authData.record;
+      
       setUser({
         id: authUser.id,
         email: authUser.email,
         name: authUser.name || authUser.email,
         createdAt: authUser.created,
       });
+      
       setIsLoading(false);
       return true;
     } catch (error: any) {
@@ -67,17 +107,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         passwordConfirm: password,
         name,
       };
-      const createdUser = await pb.collection('users').create(data);
-
-      // Автоматический вход после регистрации
+      await pb.collection('users').create(data);
+      
       const authData = await pb.collection('users').authWithPassword(email, password);
       const authUser = authData.record;
+      
       setUser({
         id: authUser.id,
         email: authUser.email,
         name: authUser.name || authUser.email,
         createdAt: authUser.created,
       });
+      
       setIsLoading(false);
       return true;
     } catch (error: any) {
@@ -89,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     pb.authStore.clear();
+    localStorage.removeItem('pb_auth');
     setUser(null);
   };
 
