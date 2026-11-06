@@ -22,9 +22,6 @@ import pb from './lib/pocketbase';
 
 console.log('🔵 APP.TSX ЗАГРУЖЕН');
 
-function App() {
-  console.log('🔵 ФУНКЦИЯ APP ВЫЗВАНА');
-
 // Вспомогательная функция: превращает Base64 строку в настоящий File объект
 const base64ToFile = (base64: string, filename: string): File => {
   const arr = base64.split(',');
@@ -75,6 +72,7 @@ const safeParseArray = (value: any): any[] => {
 };
 
 function App() {
+  console.log('🔵 ФУНКЦИЯ APP ВЫЗВАНА');
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
