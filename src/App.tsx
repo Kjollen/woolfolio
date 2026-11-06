@@ -20,6 +20,11 @@ import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
 import pb from './lib/pocketbase';
 
+console.log('🔵 APP.TSX ЗАГРУЖЕН');
+
+function App() {
+  console.log('🔵 ФУНКЦИЯ APP ВЫЗВАНА');
+
 // Вспомогательная функция: превращает Base64 строку в настоящий File объект
 const base64ToFile = (base64: string, filename: string): File => {
   const arr = base64.split(',');
