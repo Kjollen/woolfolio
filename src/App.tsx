@@ -169,30 +169,18 @@ function App() {
     }
   }, [activeSection]);
 
-  // Экран загрузки
-  if (authLoading || dataLoading) {
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
-      <i className="fas fa-spinner fa-spin text-3xl text-emerald-500 mb-4"></i>
-      <div className="text-center text-gray-700 dark:text-gray-300">
-        <p className="mb-2">Загрузка...</p>
-        <p className="text-sm text-gray-500">
-          authLoading: {authLoading ? 'да' : 'нет'}
-        </p>
-        <p className="text-sm text-gray-500">
-          dataLoading: {dataLoading ? 'да' : 'нет'}
-        </p>
-        <p className="text-sm text-gray-500">
-          user: {user ? user.email : 'null'}
-        </p>
-        <p className="text-sm text-gray-500 mt-4">
-          Если видите это больше 10 секунд — проблема с загрузкой данных
-        </p>
+  // Экран загрузки показываем ТОЛЬКО если идёт авторизация 
+  // ИЛИ если пользователь уже вошёл, но данные ещё грузятся
+  if (authLoading || (user && dataLoading)) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+        <i className="fas fa-spinner fa-spin text-3xl text-emerald-500 mb-4"></i>
+        <p className="text-gray-600 dark:text-gray-400">Загрузка данных...</p>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
+  // Если пользователя нет, сразу показываем экран входа
   if (!user) {
     return <AuthScreen />;
   }
