@@ -98,69 +98,83 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* ... (здесь твой код маппинга карточек filteredProjects.map, он не изменился) ... */}
-        {filteredProjects.map((project) => {
-          const projectYarns = getProjectYarns(project);
-          return (
-            <div
-              key={project.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedProject(project)}
-            >
-              {/* ... карточка проекта ... */}
-              {project.photos.length > 0 ? (
-                <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
-                  <img src={project.photos[0]} alt={project.name} className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
-                  <i className="fas fa-image text-4xl text-emerald-200"></i>
-                </div>
-              )}
-              <div className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-gray-800 text-sm truncate">{project.name}</h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${stageColors[project.stage]}`}>
-                    {stageLabels[project.stage]}
-                  </span>
-                </div>
-                <div className="mt-2 space-y-1.5">
-                  {project.yarnUsages.map((usage) => {
-                    const yarn = yarns.find((y) => y.id === usage.yarnId);
-                    if (!yarn) return null;
-                    return (
-                      <div key={usage.yarnId} className="flex items-center justify-between gap-2">
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded truncate flex-1">
-                          {yarn.name}
-                        </span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
-                          ×{usage.folds}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-indigo-600 uppercase tracking-wide font-medium">Толщина нити</span>
-                    <span className="text-sm font-bold text-indigo-700">
-                      {formatFoldedMeterage(project.yarnUsages, yarns)}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                  <span>Спицы: {project.needleSize} мм</span>
-                  <span className="text-gray-400">
-                    {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0) > 0 && (
-                      <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-                        {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0)}г
-                      </span>
-                    )}
-                  </span>
-                </div>
+{filteredProjects.map((project) => {
+  const projectYarns = getProjectYarns(project);
+  return (
+    <div
+      key={project.id}
+      className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => setSelectedProject(project)}
+    >
+      {project.photos.length > 0 ? (
+        <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-700 overflow-hidden">
+          <img src={project.photos[0]} alt={project.name} className="w-full h-full object-cover" />
+        </div>
+      ) : (
+        <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 flex items-center justify-center">
+          <i className="fas fa-image text-4xl text-emerald-200"></i>
+        </div>
+      )}
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{project.name}</h3>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${stageColors[project.stage]}`}>
+            {stageLabels[project.stage]}
+          </span>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {project.yarnUsages.map((usage) => {
+            const yarn = yarns.find((y) => y.id === usage.yarnId);
+            if (!yarn) return null;
+            return (
+              <div key={usage.yarnId} className="flex items-center justify-between gap-2">
+                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded truncate flex-1">
+                  {yarn.name}
+                </span>
+                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                  ×{usage.folds}
+                </span>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        <div className="mt-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Толщина нити</span>
+            <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+              {formatFoldedMeterage(project.yarnUsages, yarns)}
+            </span>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+          <span>Спицы: {project.needleSize} мм</span>
+          <span className="text-gray-400">
+            {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0) > 0 && (
+              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
+                {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0)}г
+              </span>
+            )}
+          </span>
+        </div>
+      </div>
+      {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Удалить проект "${project.name}"? Это действие нельзя отменить.`)) {
+              onDelete(project.id);
+            }
+          }}
+          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
+          title="Удалить"
+        >
+          <i className="fas fa-trash text-xs"></i>
+        </button>
+      )}
+    </div>
+  );
+})}
       </div>
 
       {filteredProjects.length === 0 && (
