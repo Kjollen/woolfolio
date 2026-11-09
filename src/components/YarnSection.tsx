@@ -202,6 +202,18 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
                 </div>
               </div>
               <div className="mt-5 flex gap-2">
+                <button
+  onClick={(e) => {
+    e.stopPropagation(); // ← ВАЖНО! Чтобы не открывалась модалка
+    if (confirm('Удалить? Это действие нельзя отменить.')) {
+      onDelete(item.id);
+    }
+  }}
+  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
+  title="Удалить"
+>
+  <i className="fas fa-trash text-xs"></i>
+</button>
                 <button 
                   onClick={() => onEdit?.(selectedYarn)}
                   className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
