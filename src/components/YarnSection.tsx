@@ -8,11 +8,12 @@ interface Props {
   projects: Project[];
   searchQuery: string;
   onEdit?: (yarn: Yarn) => void;
+  onDelete?: (id: string) => void; // <-- ДОБАВЛЕНО
 }
 
 import FilterBar from './FilterBar';
 
-const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) => {
+const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, onDelete }) => {
   const [selectedYarn, setSelectedYarn] = useState<Yarn | null>(null);
   const [sortBy, setSortBy] = useState('name');
   const [filterByRemaining, setFilterByRemaining] = useState('all');
@@ -52,7 +53,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
       return 0;
     });
 
-  // Список проектов, в которых используется эта пряжа
   const getProjectsUsingYarn = (yarnId: string) =>
     projects.filter((p) => p.yarnUsages.some((u) => u.yarnId === yarnId));
 
@@ -86,7 +86,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
           const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
           const consumed = calcYarnConsumed(yarn.id, projects);
           const usedPercent = (consumed / yarn.totalWeight) * 100;
-
           return (
             <div
               key={yarn.id}
@@ -94,11 +93,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
               onClick={() => setSelectedYarn(yarn)}
             >
               <div className="aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                <img
-                  src={yarn.photo}
-                  alt={yarn.name}
-                  className="w-full h-full object-cover"
-                />
+                <img src={yarn.photo} alt={yarn.name} className="w-full h-full object-cover" />
               </div>
               <div className="p-3">
                 <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{yarn.name}</h3>
@@ -112,7 +107,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
                 <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {yarn.meterage} м/100г
                 </div>
-                {/* Progress bar */}
                 <div className="mt-2">
                   <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                     <div
@@ -131,14 +125,12 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
           );
         })}
       </div>
-
       {filteredYarns.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <i className="fas fa-search text-4xl mb-3"></i>
           <p>Ничего не найдено</p>
         </div>
       )}
-
       {/* Modal */}
       <Modal isOpen={!!selectedYarn} onClose={() => setSelectedYarn(null)}>
         {selectedYarn && (
@@ -149,7 +141,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
             <div className="p-5">
               <h2 className="text-xl font-bold text-gray-800">{selectedYarn.name}</h2>
               <p className="text-sm text-gray-500 mt-1">{selectedYarn.manufacturer} • Арт. {selectedYarn.article}</p>
-
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <InfoItem label="Состав" value={selectedYarn.composition} />
                 <InfoItem label="Цвет" value={selectedYarn.color} />
@@ -157,8 +148,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
                 <InfoItem label="Метраж" value={`${selectedYarn.meterage} м/100г`} />
                 <InfoItem label="Общий метраж" value={`${selectedYarn.totalMeterage} м`} />
               </div>
-
-              {/* Остаток */}
               <div className="mt-4 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wide font-medium">Остаток</span>
@@ -176,8 +165,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
                   Использовано {calcYarnConsumed(selectedYarn.id, projects)}г из {selectedYarn.totalWeight}г
                 </p>
               </div>
-
-              {/* Проекты, где используется */}
               {getProjectsUsingYarn(selectedYarn.id).length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <h3 className="font-semibold text-gray-700 text-sm mb-2">
@@ -203,7 +190,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
                   </div>
                 </div>
               )}
-
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <h3 className="font-semibold text-gray-700 text-sm mb-2">
                   <i className="fas fa-shopping-bag mr-1 text-pink-400"></i> Информация о покупке
@@ -215,7 +201,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
                   <InfoItem label="Общая сумма" value={`${selectedYarn.totalPrice} ₽`} />
                 </div>
               </div>
-
               <div className="mt-5 flex gap-2">
                 <button 
                   onClick={() => onEdit?.(selectedYarn)}
@@ -223,9 +208,24 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit }) 
                 >
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
+                {/* КНОПКА УДАЛЕНИЯ */}
+                {onDelete && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Удалить пряжу "${selectedYarn.name}"? Это действие нельзя отменить.`)) {
+                        onDelete(selectedYarn.id);
+                        setSelectedYarn(null);
+                      }
+                    }}
+                    className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 py-2.5 px-4 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                    title="Удалить"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedYarn(null)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Закрыть
                 </button>
