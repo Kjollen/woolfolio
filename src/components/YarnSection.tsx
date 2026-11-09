@@ -82,48 +82,63 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
         ]}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredYarns.map((yarn) => {
-          const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
-          const consumed = calcYarnConsumed(yarn.id, projects);
-          const usedPercent = (consumed / yarn.totalWeight) * 100;
-          return (
+{filteredYarns.map((yarn) => {
+  const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
+  const consumed = calcYarnConsumed(yarn.id, projects);
+  const usedPercent = (consumed / yarn.totalWeight) * 100;
+  return (
+    <div
+      key={yarn.id}
+      className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => setSelectedYarn(yarn)}
+    >
+      <div className="aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
+        <img src={yarn.photo} alt={yarn.name} className="w-full h-full object-cover" />
+      </div>
+      <div className="p-3">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{yarn.name}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{yarn.manufacturer} • {yarn.article}</p>
+        <div className="mt-2 flex items-center justify-between text-xs">
+          <span className="text-gray-600 dark:text-gray-300">{yarn.color}</span>
+          <span className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+            {remaining}г
+          </span>
+        </div>
+        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {yarn.meterage} м/100г
+        </div>
+        <div className="mt-2">
+          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
             <div
-              key={yarn.id}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedYarn(yarn)}
-            >
-              <div className="aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                <img src={yarn.photo} alt={yarn.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="p-3">
-                <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{yarn.name}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{yarn.manufacturer} • {yarn.article}</p>
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <span className="text-gray-600 dark:text-gray-300">{yarn.color}</span>
-                  <span className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
-                    {remaining}г
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {yarn.meterage} м/100г
-                </div>
-                <div className="mt-2">
-                  <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${
-                        usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-emerald-400'
-                      }`}
-                      style={{ width: `${Math.min(usedPercent, 100)}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                    Использовано {consumed}г из {yarn.totalWeight}г
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+              className={`h-1.5 rounded-full transition-all ${
+                usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-emerald-400'
+              }`}
+              style={{ width: `${Math.min(usedPercent, 100)}%` }}
+            ></div>
+          </div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+            Использовано {consumed}г из {yarn.totalWeight}г
+          </p>
+        </div>
+      </div>
+      {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Удалить пряжу "${yarn.name}"? Это действие нельзя отменить.`)) {
+              onDelete(yarn.id);
+            }
+          }}
+          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
+          title="Удалить"
+        >
+          <i className="fas fa-trash text-xs"></i>
+        </button>
+      )}
+    </div>
+  );
+})}
       </div>
       {filteredYarns.length === 0 && (
         <div className="text-center py-12 text-gray-400">
