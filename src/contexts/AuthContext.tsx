@@ -22,12 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Функция восстановления сессии из cookie/localStorage
-  const restoreAuth = () => {
-    // Восстанавливаем токен из cookie (PocketBase хранит его там)
+  useEffect(() => {
+    // Восстановление сессии из cookie и localStorage
     pb.authStore.loadFromCookie(document.cookie);
     
-    // Также пробуем из localStorage (на случай если cookie не сработали)
     const savedToken = localStorage.getItem('pb_auth');
     if (savedToken) {
       try {
@@ -49,24 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         console.log('✅ Сессия восстановлена:', authUser.email);
       }
-    } else {
-      console.log('⚠️ Сессия не найдена, пользователь не авторизован');
     }
-  };
-
-  useEffect(() => {
-    // Восстановление сессии при загрузке страницы
-    restoreAuth();
     setIsLoading(false);
   }, []);
 
-  // Сохраняем токен при каждом изменении authStore
+  // Сохраняем токен при изменении user
   useEffect(() => {
     if (pb.authStore.isValid && pb.authStore.model) {
-      // Сохраняем в cookie
-      pb.authStore.bindAuthCookie(document.cookie);
-      
-      // Сохраняем в localStorage
       localStorage.setItem('pb_auth', JSON.stringify({
         token: pb.authStore.token,
         model: pb.authStore.model,
@@ -81,14 +68,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const authData = await pb.collection('users').authWithPassword(email, password);
       const authUser = authData.record;
-      
       setUser({
         id: authUser.id,
         email: authUser.email,
         name: authUser.name || authUser.email,
         createdAt: authUser.created,
       });
-      
       setIsLoading(false);
       return true;
     } catch (error: any) {
@@ -108,17 +93,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name,
       };
       await pb.collection('users').create(data);
-      
       const authData = await pb.collection('users').authWithPassword(email, password);
       const authUser = authData.record;
-      
       setUser({
         id: authUser.id,
         email: authUser.email,
         name: authUser.name || authUser.email,
         createdAt: authUser.created,
       });
-      
       setIsLoading(false);
       return true;
     } catch (error: any) {
