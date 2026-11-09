@@ -22,34 +22,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Восстановление сессии из cookie и localStorage
-    pb.authStore.loadFromCookie(document.cookie);
-    
-    const savedToken = localStorage.getItem('pb_auth');
-    if (savedToken) {
-      try {
-        const authData = JSON.parse(savedToken);
-        pb.authStore.save(authData.token, authData.model);
-      } catch (e) {
-        console.error('Ошибка восстановления из localStorage:', e);
-      }
+useEffect(() => {
+  console.log('🔍 Начинаем восстановление сессии...');
+  console.log('🔍 Cookie:', document.cookie);
+  console.log('🔍 localStorage pb_auth:', localStorage.getItem('pb_auth'));
+  
+  // Восстановление сессии из cookie и localStorage
+  pb.authStore.loadFromCookie(document.cookie);
+  
+  const savedToken = localStorage.getItem('pb_auth');
+  if (savedToken) {
+    try {
+      const authData = JSON.parse(savedToken);
+      pb.authStore.save(authData.token, authData.model);
+      console.log('🔍 Токен восстановлен из localStorage');
+    } catch (e) {
+      console.error('🔍 Ошибка восстановления из localStorage:', e);
     }
+  }
 
-    if (pb.authStore.isValid) {
-      const authUser = pb.authStore.model;
-      if (authUser) {
-        setUser({
-          id: authUser.id,
-          email: authUser.email,
-          name: authUser.name || authUser.email,
-          createdAt: authUser.created,
-        });
-        console.log('✅ Сессия восстановлена:', authUser.email);
-      }
+  console.log('🔍 pb.authStore.isValid:', pb.authStore.isValid);
+  console.log('🔍 pb.authStore.model:', pb.authStore.model);
+
+  if (pb.authStore.isValid) {
+    const authUser = pb.authStore.model;
+    if (authUser) {
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.name || authUser.email,
+        createdAt: authUser.created,
+      });
+      console.log('✅ Сессия восстановлена:', authUser.email);
     }
-    setIsLoading(false);
-  }, []);
+  } else {
+    console.log('⚠️ Сессия не найдена');
+  }
+  setIsLoading(false);
+}, []);
 
   // Сохраняем токен при изменении user
   useEffect(() => {
