@@ -111,6 +111,7 @@ function App() {
   }, [user]);
 
     const loadData = async () => {
+    console.log('🟡 loadData вызвана, user:', user);
     setDataLoading(true);
     try {
       const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
