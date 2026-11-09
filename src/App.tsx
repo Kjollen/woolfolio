@@ -36,14 +36,6 @@ const base64ToFile = (base64: string, filename: string): File => {
   return new File([u8arr], filename, { type: mime });
 };
 
-// Извлекает имя файла из URL PocketBase
-const extractFilename = (url: string): string => {
-  if (!url) return '';
-  // URL выглядит как: https://domain/api/files/collection/recordId/filename
-  const parts = url.split('/');
-  return parts[parts.length - 1] || url;
-};
-
 const sections: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Главная', icon: 'fas fa-home' },
   { id: 'yarn', label: 'Пряжа', icon: '🧶' },
@@ -56,16 +48,14 @@ const sections: { id: Section; label: string; icon: string }[] = [
 const safeParseArray = (value: any): any[] => {
   if (!value) return [];
   if (Array.isArray(value)) return value;
-  
   if (typeof value === 'string') {
     try {
       return JSON.parse(value);
     } catch (e) {
-      // Если PocketBase сохранил массив как строку через запятую (глюк текстового поля)
       if (value.includes(',') && !value.startsWith('[')) {
         return value.split(',').map((s: string) => s.trim()).filter(Boolean);
       }
-      return []; // Если не удалось распарсить, возвращаем пустой массив, а не крашим приложение
+      return [];
     }
   }
   return [];
@@ -110,7 +100,7 @@ function App() {
     }
   }, [user]);
 
-    const loadData = async () => {
+  const loadData = async () => {
     console.log('🟡 loadData вызвана, user:', user);
     setDataLoading(true);
     try {
@@ -126,7 +116,6 @@ function App() {
 
       // 1. Проекты: БЕЗОПАСНЫЙ парсинг
       const parsedProjects = projectsData.map((p: any) => {
-        // Если yarnUsages null или undefined, принудительно делаем []
         let safeYarnUsages = [];
         if (p.yarnUsages) {
           if (typeof p.yarnUsages === 'string') {
@@ -136,7 +125,6 @@ function App() {
             safeYarnUsages = p.yarnUsages;
           }
         }
-
         return {
           ...p,
           photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
@@ -155,7 +143,6 @@ function App() {
 
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
-      // На iPhone alert может не показаться, но в консоли мы это увидим
     } finally {
       setDataLoading(false);
     }
@@ -169,8 +156,7 @@ function App() {
     }
   }, [activeSection]);
 
-  // Экран загрузки показываем ТОЛЬКО если идёт авторизация 
-  // ИЛИ если пользователь уже вошёл, но данные ещё грузятся
+  // Экран загрузки
   if (authLoading || (user && dataLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -180,23 +166,22 @@ function App() {
     );
   }
 
-  // Если пользователя нет, сразу показываем экран входа
   if (!user) {
     return <AuthScreen />;
   }
-  
+
   const renderSection = () => {
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard yarns={yarns} projects={projects} samples={samples} patterns={patterns} />;
       case 'yarn':
-        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} onEdit={setEditingYarn} />;
+        return <YarnSection yarns={yarns} projects={projects} searchQuery={searchQuery} onEdit={setEditingYarn} onDelete={handleDeleteYarn} />;
       case 'projects':
-        return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} onProjectUpdate={handleUpdateProject} />;
+        return <ProjectsSection projects={projects} yarns={yarns} searchQuery={searchQuery} onProjectUpdate={handleUpdateProject} onDelete={handleDeleteProject} />;
       case 'samples':
-        return <SamplesSection samples={samples} yarns={yarns} searchQuery={searchQuery} onSampleUpdate={handleUpdateSample} />;
+        return <SamplesSection samples={samples} yarns={yarns} searchQuery={searchQuery} onSampleUpdate={handleUpdateSample} onDelete={handleDeleteSample} />;
       case 'patterns':
-        return <PatternsSection patterns={patterns} searchQuery={searchQuery} onPatternUpdate={handleUpdatePattern} />;
+        return <PatternsSection patterns={patterns} searchQuery={searchQuery} onPatternUpdate={handleUpdatePattern} onDelete={handleDeletePattern} />;
     }
   };
 
@@ -212,20 +197,14 @@ function App() {
 
   const handleAddClick = () => {
     switch (activeSection) {
-      case 'yarn':
-        setShowAddYarn(true);
-        break;
-      case 'projects':
-        setShowAddProject(true);
-        break;
-      case 'samples':
-        setShowAddSample(true);
-        break;
-      case 'patterns':
-        setShowAddPattern(true);
-        break;
+      case 'yarn': setShowAddYarn(true); break;
+      case 'projects': setShowAddProject(true); break;
+      case 'samples': setShowAddSample(true); break;
+      case 'patterns': setShowAddPattern(true); break;
     }
   };
+
+  // === ФУНКЦИИ СОХРАНЕНИЯ (ИСПРАВЛЕНЫ ДЛЯ ФАЙЛОВ) ===
 
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
@@ -238,201 +217,60 @@ function App() {
     }
   };
 
-  const handleUpdateYarn = async (updatedYarn: Yarn) => {
-    try {
-      const updated = await pb.collection('yarns').update(updatedYarn.id, updatedYarn);
-      setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
-      setEditingYarn(null);
-    } catch (error) {
-      console.error('Ошибка обновления пряжи:', error);
-      alert('Не удалось обновить пряжу');
-    }
-  };
-
-  const handleUpdateSample = async (updatedSample: Sample) => {
-  try {
-    await pb.collection('samples').update(updatedSample.id, updatedSample);
-    // Обновляем локальный список
-    setSamples(samples.map(s => s.id === updatedSample.id ? updatedSample : s));
-    setEditingSample(null);
-  } catch (error) {
-    console.error('Ошибка обновления образца:', error);
-    alert('Не удалось сохранить изменения');
-  }
-};
-
-// Вспомогательная функция для удаления файлов через прямой fetch
-const deleteFiles = async (collectionName: string, recordId: string, field: string, filenames: string[]) => {
-  const url = `${pb.baseUrl}api/collections/${collectionName}/records/${recordId}`;
-  
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${pb.authStore.token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      [field]: filenames.map(f => '-' + f)
-    })
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to delete files');
-  }
-  
-  return response.json();
-};
-
-// Вспомогательная функция для загрузки файлов через FormData
-const uploadFiles = async (collectionName: string, recordId: string, field: string, files: File[]) => {
-  const url = `${pb.baseUrl}api/collections/${collectionName}/records/${recordId}`;
-  const formData = new FormData();
-  
-  files.forEach(file => {
-    formData.append(field, file);
-  });
-  
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${pb.authStore.token}`
-    },
-    body: formData
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to upload files');
-  }
-  
-  return response.json();
-};
-
-// Вспомогательная функция для обновления текстовых полей
-const updateRecord = async (collectionName: string, recordId: string, data: any) => {
-  const url = `${pb.baseUrl}api/collections/${collectionName}/records/${recordId}`;
-  
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${pb.authStore.token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to update record');
-  }
-  
-  return response.json();
-};
-
-// Вспомогательная функция для конвертации base64 в File
-const base64ToFile = (base64: string, filename: string): File => {
-  const arr = base64.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new File([u8arr], filename, { type: mime });
-};
-
-const handleUpdateProject = async (updatedProject: Project) => {
-  try {
-    const newPhotos = updatedProject.photos.filter(p => p.startsWith('data:'));
-
-    // ШАГ 1: Если есть новые файлы (base64), загружаем их
-    if (newPhotos.length > 0) {
-      const formData = new FormData();
-      newPhotos.forEach((photo, index) => {
-        const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-        formData.append('photos', file);
-      });
-      await pb.collection('projects').update(updatedProject.id, formData);
-    }
-
-    // ШАГ 2: Обновляем текстовые поля и список оставшихся файлов.
-    // PocketBase САМ удалит файлы, которых нет в этом массиве!
-    const remainingPhotos = updatedProject.photos
-      .filter(p => !p.startsWith('data:'))
-      .map(url => url.split('/').pop() || url);
-
-    await pb.collection('projects').update(updatedProject.id, {
-      name: updatedProject.name,
-      stage: updatedProject.stage,
-      needleSize: updatedProject.needleSize,
-      startDate: updatedProject.startDate,
-      endDate: updatedProject.endDate,
-      notes: updatedProject.notes,
-      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-      photos: remainingPhotos, 
-    });
-
-    await loadData();
-    setEditingProject(null);
-  } catch (error: any) {
-    console.error('Ошибка обновления проекта:', error);
-    alert(error.message || 'Не удалось сохранить изменения');
-  }
-};
-
-const handleUpdatePattern = async (updatedPattern: Pattern) => {
-  try {
-    const newPhotos = updatedPattern.photos.filter(p => p.startsWith('data:'));
-    const newPdfs = updatedPattern.pdfs.filter(p => p.startsWith('data:'));
-
-    // ШАГ 1: Загружаем новые файлы (если есть)
-    if (newPhotos.length > 0 || newPdfs.length > 0) {
-      const formData = new FormData();
-      newPhotos.forEach((photo, index) => {
-        formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
-      });
-      newPdfs.forEach((pdf, index) => {
-        formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
-      });
-      await pb.collection('patterns').update(updatedPattern.id, formData);
-    }
-
-    // ШАГ 2: Обновляем текстовые поля и списки оставшихся файлов.
-    // PocketBase САМ удалит файлы, которых нет в этих массивах!
-    const remainingPhotos = updatedPattern.photos
-      .filter(p => !p.startsWith('data:'))
-      .map(url => url.split('/').pop() || url);
-
-    const remainingPdfs = updatedPattern.pdfs
-      .filter(p => !p.startsWith('data:'))
-      .map(url => url.split('/').pop() || url);
-
-    await pb.collection('patterns').update(updatedPattern.id, {
-      name: updatedPattern.name,
-      link: updatedPattern.link || '',
-      photos: remainingPhotos,
-      pdfs: remainingPdfs,
-    });
-
-    await loadData();
-    setEditingPattern(null);
-  } catch (error: any) {
-    console.error('Ошибка обновления схемы:', error);
-    alert(error.message || 'Не удалось сохранить изменения');
-  }
-};
-  
   const handleSaveProject = async (project: Project) => {
     try {
-      const created = await pb.collection('projects').create(project);
-      setProjects([created as any, ...projects]);
+      console.log('🟢 handleSaveProject вызвана, project:', project);
+      
+      // Разделяем файлы: base64 (новые) и URL (существующие)
+      const newPhotos = project.photos.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = project.photos.filter((p: string) => !p.startsWith('data:'));
+
+      // ШАГ 1: Создаём запись через FormData (если есть новые файлы)
+      let createdRecord;
+      if (newPhotos.length > 0) {
+        const formData = new FormData();
+        formData.append('name', project.name);
+        formData.append('stage', project.stage);
+        formData.append('needleSize', String(project.needleSize || 0));
+        formData.append('startDate', project.startDate || '');
+        formData.append('endDate', project.endDate || '');
+        formData.append('notes', project.notes || '');
+        formData.append('yarnUsages', JSON.stringify(project.yarnUsages || []));
+        
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+
+        createdRecord = await pb.collection('projects').create(formData);
+      } else {
+        // Если новых файлов нет, создаём через JSON
+        createdRecord = await pb.collection('projects').create({
+          name: project.name,
+          stage: project.stage,
+          needleSize: project.needleSize,
+          startDate: project.startDate,
+          endDate: project.endDate,
+          notes: project.notes,
+          yarnUsages: JSON.stringify(project.yarnUsages || []),
+          photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
+        });
+      }
+
+      // ШАГ 2: Если есть существующие файлы (URL), добавляем их через update
+      if (existingPhotos.length > 0 && newPhotos.length > 0) {
+        const photoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+        await pb.collection('projects').update(createdRecord.id, {
+          photos: photoFilenames,
+        });
+      }
+
+      // ШАГ 3: Перезагружаем данные и закрываем форму
+      await loadData();
       setShowAddProject(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка сохранения проекта:', error);
-      alert('Не удалось сохранить проект');
+      alert(error.message || 'Не удалось сохранить проект');
     }
   };
 
@@ -449,12 +287,208 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
 
   const handleSavePattern = async (pattern: Pattern) => {
     try {
-      const created = await pb.collection('patterns').create(pattern);
-      setPatterns([created as any, ...patterns]);
+      console.log('🟢 handleSavePattern вызвана, pattern:', pattern);
+      
+      // Разделяем файлы: base64 (новые) и URL (существующие)
+      const newPhotos = pattern.photos.filter((p: string) => p.startsWith('data:'));
+      const newPdfs = pattern.pdfs.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = pattern.photos.filter((p: string) => !p.startsWith('data:'));
+      const existingPdfs = pattern.pdfs.filter((p: string) => !p.startsWith('data:'));
+
+      // ШАГ 1: Создаём запись через FormData (если есть новые файлы)
+      let createdRecord;
+      if (newPhotos.length > 0 || newPdfs.length > 0) {
+        const formData = new FormData();
+        formData.append('name', pattern.name);
+        formData.append('link', pattern.link || '');
+        
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+        
+        newPdfs.forEach((pdf: string, index: number) => {
+          const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
+          formData.append('pdfs', file);
+        });
+
+        createdRecord = await pb.collection('patterns').create(formData);
+      } else {
+        // Если новых файлов нет, создаём через JSON
+        createdRecord = await pb.collection('patterns').create({
+          name: pattern.name,
+          link: pattern.link || '',
+          photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
+          pdfs: existingPdfs.map((url: string) => url.split('/').pop() || url),
+        });
+      }
+
+      // ШАГ 2: Если есть существующие файлы (URL), добавляем их через update
+      if ((existingPhotos.length > 0 || existingPdfs.length > 0) && (newPhotos.length > 0 || newPdfs.length > 0)) {
+        const updateData: any = {};
+        if (existingPhotos.length > 0) {
+          updateData.photos = existingPhotos.map((url: string) => url.split('/').pop() || url);
+        }
+        if (existingPdfs.length > 0) {
+          updateData.pdfs = existingPdfs.map((url: string) => url.split('/').pop() || url);
+        }
+        await pb.collection('patterns').update(createdRecord.id, updateData);
+      }
+
+      // ШАГ 3: Перезагружаем данные и закрываем форму
+      await loadData();
       setShowAddPattern(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка сохранения схемы:', error);
-      alert('Не удалось сохранить схему');
+      alert(error.message || 'Не удалось сохранить схему');
+    }
+  };
+
+  // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ===
+
+  const handleUpdateYarn = async (updatedYarn: Yarn) => {
+    try {
+      const updated = await pb.collection('yarns').update(updatedYarn.id, updatedYarn);
+      setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
+      setEditingYarn(null);
+    } catch (error) {
+      console.error('Ошибка обновления пряжи:', error);
+      alert('Не удалось обновить пряжу');
+    }
+  };
+
+  const handleUpdateSample = async (updatedSample: Sample) => {
+    try {
+      await pb.collection('samples').update(updatedSample.id, updatedSample);
+      setSamples(samples.map(s => s.id === updatedSample.id ? updatedSample : s));
+      setEditingSample(null);
+    } catch (error) {
+      console.error('Ошибка обновления образца:', error);
+      alert('Не удалось сохранить изменения');
+    }
+  };
+
+  const handleUpdateProject = async (updatedProject: Project) => {
+    try {
+      const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
+      
+      // ШАГ 1: Если есть новые файлы (base64), загружаем их
+      if (newPhotos.length > 0) {
+        const formData = new FormData();
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+        await pb.collection('projects').update(updatedProject.id, formData);
+      }
+      
+      // ШАГ 2: Обновляем текстовые поля и список оставшихся файлов
+      const remainingPhotos = updatedProject.photos
+        .filter((p: string) => !p.startsWith('data:'))
+        .map((url: string) => url.split('/').pop() || url);
+      
+      await pb.collection('projects').update(updatedProject.id, {
+        name: updatedProject.name,
+        stage: updatedProject.stage,
+        needleSize: updatedProject.needleSize,
+        startDate: updatedProject.startDate,
+        endDate: updatedProject.endDate,
+        notes: updatedProject.notes,
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+        photos: remainingPhotos,
+      });
+      
+      await loadData();
+      setEditingProject(null);
+    } catch (error: any) {
+      console.error('Ошибка обновления проекта:', error);
+      alert(error.message || 'Не удалось сохранить изменения');
+    }
+  };
+
+  const handleUpdatePattern = async (updatedPattern: Pattern) => {
+    try {
+      const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
+      const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
+      
+      // ШАГ 1: Загружаем новые файлы (если есть)
+      if (newPhotos.length > 0 || newPdfs.length > 0) {
+        const formData = new FormData();
+        newPhotos.forEach((photo: string, index: number) => {
+          formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
+        });
+        newPdfs.forEach((pdf: string, index: number) => {
+          formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
+        });
+        await pb.collection('patterns').update(updatedPattern.id, formData);
+      }
+      
+      // ШАГ 2: Обновляем текстовые поля и списки оставшихся файлов
+      const remainingPhotos = updatedPattern.photos
+        .filter((p: string) => !p.startsWith('data:'))
+        .map((url: string) => url.split('/').pop() || url);
+      const remainingPdfs = updatedPattern.pdfs
+        .filter((p: string) => !p.startsWith('data:'))
+        .map((url: string) => url.split('/').pop() || url);
+      
+      await pb.collection('patterns').update(updatedPattern.id, {
+        name: updatedPattern.name,
+        link: updatedPattern.link || '',
+        photos: remainingPhotos,
+        pdfs: remainingPdfs,
+      });
+      
+      await loadData();
+      setEditingPattern(null);
+    } catch (error: any) {
+      console.error('Ошибка обновления схемы:', error);
+      alert(error.message || 'Не удалось сохранить изменения');
+    }
+  };
+
+  // === ФУНКЦИИ УДАЛЕНИЯ ===
+
+  const handleDeleteYarn = async (id: string) => {
+    if (!confirm('Удалить пряжу? Это действие нельзя отменить.')) return;
+    try {
+      await pb.collection('yarns').delete(id);
+      setYarns(yarns.filter(y => y.id !== id));
+    } catch (error: any) {
+      console.error('Ошибка удаления пряжи:', error);
+      alert(error.message || 'Не удалось удалить пряжу');
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    if (!confirm('Удалить проект? Это действие нельзя отменить.')) return;
+    try {
+      await pb.collection('projects').delete(id);
+      setProjects(projects.filter(p => p.id !== id));
+    } catch (error: any) {
+      console.error('Ошибка удаления проекта:', error);
+      alert(error.message || 'Не удалось удалить проект');
+    }
+  };
+
+  const handleDeleteSample = async (id: string) => {
+    if (!confirm('Удалить образец? Это действие нельзя отменить.')) return;
+    try {
+      await pb.collection('samples').delete(id);
+      setSamples(samples.filter(s => s.id !== id));
+    } catch (error: any) {
+      console.error('Ошибка удаления образца:', error);
+      alert(error.message || 'Не удалось удалить образец');
+    }
+  };
+
+  const handleDeletePattern = async (id: string) => {
+    if (!confirm('Удалить схему? Это действие нельзя отменить.')) return;
+    try {
+      await pb.collection('patterns').delete(id);
+      setPatterns(patterns.filter(p => p.id !== id));
+    } catch (error: any) {
+      console.error('Ошибка удаления схемы:', error);
+      alert(error.message || 'Не удалось удалить схему');
     }
   };
 
@@ -469,7 +503,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">WoolFolio</h1>
           </div>
         </div>
-
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {sections.map((section) => (
@@ -498,7 +531,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
             </button>
           ))}
         </nav>
-
         {/* Footer */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-700">
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center">
@@ -541,7 +573,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
             <i className="fas fa-times"></i>
           </button>
         </div>
-
         {/* Navigation */}
         <nav className="p-4 space-y-1">
           {sections.map((section) => (
@@ -644,12 +675,7 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
                       <button
                         onClick={() => {
-                          exportToJSON({
-                            yarns,
-                            projects,
-                            samples,
-                            patterns,
-                          });
+                          exportToJSON({ yarns, projects, samples, patterns });
                           setExportMenuOpen(false);
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -735,58 +761,16 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
       </div>
 
       {/* Формы добавления */}
-      <AddYarnForm
-        isOpen={showAddYarn}
-        onClose={() => setShowAddYarn(false)}
-        onSave={handleSaveYarn}
-      />
-      <AddProjectForm
-        isOpen={showAddProject}
-        onClose={() => setShowAddProject(false)}
-        onSave={handleSaveProject}
-        yarns={yarns}
-      />
-      <AddSampleForm
-        isOpen={showAddSample}
-        onClose={() => setShowAddSample(false)}
-        onSave={handleSaveSample}
-        yarns={yarns}
-      />
-      <AddPatternForm
-        isOpen={showAddPattern}
-        onClose={() => setShowAddPattern(false)}
-        onSave={handleSavePattern}
-      />
+      <AddYarnForm isOpen={showAddYarn} onClose={() => setShowAddYarn(false)} onSave={handleSaveYarn} />
+      <AddProjectForm isOpen={showAddProject} onClose={() => setShowAddProject(false)} onSave={handleSaveProject} yarns={yarns} />
+      <AddSampleForm isOpen={showAddSample} onClose={() => setShowAddSample(false)} onSave={handleSaveSample} yarns={yarns} />
+      <AddPatternForm isOpen={showAddPattern} onClose={() => setShowAddPattern(false)} onSave={handleSavePattern} />
 
-      {/* Форма редактирования */}
-      <EditYarnForm
-        isOpen={!!editingYarn}
-        onClose={() => setEditingYarn(null)}
-        onSave={handleUpdateYarn}
-        yarn={editingYarn}
-      />
-      <EditSampleForm
-        isOpen={!!editingSample}
-        onClose={() => setEditingSample(null)}
-        onSave={handleUpdateSample}
-        yarns={yarns}
-        sample={editingSample}
-      />
-
-      <EditPatternForm
-        isOpen={!!editingPattern}
-        onClose={() => setEditingPattern(null)}
-        onSave={handleUpdatePattern}
-        pattern={editingPattern}
-      />
-
-      <EditProjectForm
-        isOpen={!!editingProject}
-        onClose={() => setEditingProject(null)}
-        onSave={handleUpdateProject}
-        yarns={yarns}
-        project={editingProject}
-      />
+      {/* Формы редактирования */}
+      <EditYarnForm isOpen={!!editingYarn} onClose={() => setEditingYarn(null)} onSave={handleUpdateYarn} yarn={editingYarn} />
+      <EditSampleForm isOpen={!!editingSample} onClose={() => setEditingSample(null)} onSave={handleUpdateSample} yarns={yarns} sample={editingSample} />
+      <EditPatternForm isOpen={!!editingPattern} onClose={() => setEditingPattern(null)} onSave={handleUpdatePattern} pattern={editingPattern} />
+      <EditProjectForm isOpen={!!editingProject} onClose={() => setEditingProject(null)} onSave={handleUpdateProject} yarns={yarns} project={editingProject} />
     </div>
   );
 }
