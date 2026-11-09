@@ -25,7 +25,7 @@ const stageColors: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
 };
 
-const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProjectUpdate }) => {
+const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProjectUpdate, onDelete }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null); // <--- 3. Состояние редактирования
   const [sortBy, setSortBy] = useState('name');
