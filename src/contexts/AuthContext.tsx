@@ -69,16 +69,22 @@ useEffect(() => {
 }, []);
 
   // Сохраняем токен при изменении user
-  useEffect(() => {
-    if (pb.authStore.isValid && pb.authStore.model) {
+useEffect(() => {
+  if (pb.authStore.isValid && pb.authStore.model) {
+    // Сохраняем в localStorage (надёжнее для Safari)
+    try {
       localStorage.setItem('pb_auth', JSON.stringify({
         token: pb.authStore.token,
         model: pb.authStore.model,
       }));
-    } else {
-      localStorage.removeItem('pb_auth');
+      console.log('💾 Токен сохранён в localStorage');
+    } catch (e) {
+      console.error('💾 Ошибка сохранения в localStorage:', e);
     }
-  }, [user]);
+  } else {
+    localStorage.removeItem('pb_auth');
+  }
+}, [user]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
