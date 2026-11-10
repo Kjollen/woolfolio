@@ -95,14 +95,30 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
               </div>
 
               {/* ЕДИНЫЙ ИНФОРМАЦИОННЫЙ БЛОК */}
-              <div className="mx-3 mb-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-3 pb-10">
-                {/* Толщина нити */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Толщина нити</span>
-                  <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
-                    {formatFoldedMeterage(sample.yarnUsages, yarns)}
-                  </span>
-                </div>
+        <div className="mx-3 mb-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-3 pb-10">
+  {/* Плотность — главный параметр */}
+  <div className="flex items-center justify-between mb-2">
+    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Плотность (после ВТО)</span>
+    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+      {densityAfter}
+    </span>
+  </div>
+
+  {/* Разделитель */}
+  <div className="border-t border-indigo-200 dark:border-indigo-800 my-2"></div>
+
+  {/* Спицы и толщина нити */}
+  <div className="flex items-center justify-between text-xs">
+    <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+      <i className="fas fa-ruler-horizontal"></i>
+      <span>Спицы: <span className="font-semibold text-indigo-700 dark:text-indigo-300">{sample.needleSize} мм</span></span>
+    </div>
+    <div className="text-indigo-600 dark:text-indigo-400 text-right">
+      <span className="text-[10px] uppercase tracking-wide">Толщина:</span>
+      <span className="font-semibold text-indigo-700 dark:text-indigo-300 ml-1">{formatFoldedMeterage(sample.yarnUsages, yarns)}</span>
+    </div>
+  </div>
+</div>
 
                 {/* Разделитель */}
                 <div className="border-t border-indigo-200 dark:border-indigo-800 my-2"></div>
