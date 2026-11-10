@@ -9,7 +9,7 @@ interface Props {
   yarns: Yarn[];
   searchQuery: string;
   onSampleUpdate: (sample: Sample) => void;
-  onDelete?: (id: string) => void; // <-- ДОБАВЛЕНО
+  onDelete?: (id: string) => void;
 }
 
 const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSampleUpdate, onDelete }) => {
@@ -45,12 +45,14 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredSamples.map((sample) => {
+          const densityAfter = `${((sample.stitchesWidthAfter / sample.measurementWidthAfter)).toFixed(2)}п × ${((sample.rowsHeightAfter / sample.measurementHeightAfter)).toFixed(2)}р на 1 см`;
           return (
             <div
               key={sample.id}
               className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => setSelectedSample(sample)}
             >
+              {/* Фото до/после ВТО */}
               <div className="grid grid-cols-2 h-36">
                 <div className="bg-gray-100 dark:bg-gray-700 overflow-hidden border-r border-gray-200">
                   {sample.photoBefore ? (
@@ -71,7 +73,9 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                   )}
                 </div>
               </div>
-              <div className="p-3">
+
+              {/* Пряжа и сложения */}
+              <div className="p-3 pb-2">
                 <div className="space-y-1.5 mb-1">
                   {sample.yarnUsages.map((usage) => {
                     const yarn = yarns.find((y) => y.id === usage.yarnId);
@@ -88,21 +92,34 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                     );
                   })}
                 </div>
-                <div className="mt-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Толщина нити</span>
-                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
-                      {formatFoldedMeterage(sample.yarnUsages, yarns)}
-                    </span>
+              </div>
+
+              {/* ЕДИНЫЙ ИНФОРМАЦИОННЫЙ БЛОК */}
+              <div className="mx-3 mb-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-3 pb-10">
+                {/* Толщина нити */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Толщина нити</span>
+                  <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                    {formatFoldedMeterage(sample.yarnUsages, yarns)}
+                  </span>
+                </div>
+
+                {/* Разделитель */}
+                <div className="border-t border-indigo-200 dark:border-indigo-800 my-2"></div>
+
+                {/* Спицы и плотность в одной строке */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                    <i className="fas fa-ruler-horizontal"></i>
+                    <span>Спицы: <span className="font-semibold text-indigo-700 dark:text-indigo-300">{sample.needleSize} мм</span></span>
+                  </div>
+                  <div className="text-indigo-600 dark:text-indigo-400 text-right">
+                    <span className="text-[10px] uppercase tracking-wide">Плотность:</span>
+                    <span className="font-semibold text-indigo-700 dark:text-indigo-300 ml-1">{densityAfter}</span>
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Спицы: {sample.needleSize} мм
-                </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Плотность (после ВТО): {((sample.stitchesWidthAfter / sample.measurementWidthAfter)).toFixed(2)}п × {((sample.rowsHeightAfter / sample.measurementHeightAfter)).toFixed(2)}р на 1 см
-                </p>
               </div>
+
               {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
               {onDelete && (
                 <button
@@ -239,7 +256,6 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                   </p>
                 </div>
               </div>
-              {/* КНОПКИ В МОДАЛКЕ — только Редактировать и Закрыть */}
               <div className="flex gap-2">
                 <button
                   onClick={() => setEditingSample(selectedSample)}
