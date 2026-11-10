@@ -4,13 +4,14 @@ import { formatFoldedMeterage } from '../utils/yarnCalc';
 import Modal from './Modal';
 import PhotoGallery from './PhotoGallery';
 import FilterBar from './FilterBar';
-import EditProjectForm from './EditProjectForm'; // <--- 1. Импортируем форму
+import EditProjectForm from './EditProjectForm';
 
 interface Props {
   projects: Project[];
   yarns: Yarn[];
   searchQuery: string;
-  onProjectUpdate: (project: Project) => void; // <--- 2. Добавляем пропс для обновления
+  onProjectUpdate: (project: Project) => void;
+  onDelete?: (id: string) => void;
 }
 
 const stageLabels: Record<string, string> = {
@@ -27,11 +28,10 @@ const stageColors: Record<string, string> = {
 
 const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProjectUpdate, onDelete }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [editingProject, setEditingProject] = useState<Project | null>(null); // <--- 3. Состояние редактирования
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [sortBy, setSortBy] = useState('name');
   const [filterByStage, setFilterByStage] = useState('all');
 
-  // ... (getProjectYarns и filteredProjects остаются без изменений) ...
   const getProjectYarns = (project: Project): Yarn[] =>
     project.yarnUsages
       .map((u) => yarns.find((y) => y.id === u.yarnId))
@@ -65,10 +65,9 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
       return 0;
     });
 
-  // <--- 4. Обработчик сохранения
   const handleEditProject = (updatedProject: Project) => {
     onProjectUpdate(updatedProject);
-    setEditingProject(null); // Закрываем форму после сохранения
+    setEditingProject(null);
   };
 
   return (
@@ -95,95 +94,90 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
           },
         ]}
       />
-      
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* ... (здесь твой код маппинга карточек filteredProjects.map, он не изменился) ... */}
-{filteredProjects.map((project) => {
-  const projectYarns = getProjectYarns(project);
-  return (
-    <div
-      key={project.id}
-      className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-      onClick={() => setSelectedProject(project)}
-    >
-      {project.photos.length > 0 ? (
-        <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-700 overflow-hidden">
-          <img src={project.photos[0]} alt={project.name} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 flex items-center justify-center">
-          <i className="fas fa-image text-4xl text-emerald-200"></i>
-        </div>
-      )}
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{project.name}</h3>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${stageColors[project.stage]}`}>
-            {stageLabels[project.stage]}
-          </span>
-        </div>
-        <div className="mt-2 space-y-1.5">
-          {project.yarnUsages.map((usage) => {
-            const yarn = yarns.find((y) => y.id === usage.yarnId);
-            if (!yarn) return null;
-            return (
-              <div key={usage.yarnId} className="flex items-center justify-between gap-2">
-                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded truncate flex-1">
-                  {yarn.name}
-                </span>
-                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
-                  ×{usage.folds}
-                </span>
+        {filteredProjects.map((project) => {
+          return (
+            <div
+              key={project.id}
+              className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setSelectedProject(project)}
+            >
+              {project.photos.length > 0 ? (
+                <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                  <img src={project.photos[0]} alt={project.name} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 flex items-center justify-center">
+                  <i className="fas fa-image text-4xl text-emerald-200"></i>
+                </div>
+              )}
+              <div className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{project.name}</h3>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${stageColors[project.stage]}`}>
+                    {stageLabels[project.stage]}
+                  </span>
+                </div>
+                <div className="mt-2 space-y-1.5">
+                  {project.yarnUsages.map((usage) => {
+                    const yarn = yarns.find((y) => y.id === usage.yarnId);
+                    if (!yarn) return null;
+                    return (
+                      <div key={usage.yarnId} className="flex items-center justify-between gap-2">
+                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded truncate flex-1">
+                          {yarn.name}
+                        </span>
+                        <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                          ×{usage.folds}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Толщина нити</span>
+                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                      {formatFoldedMeterage(project.yarnUsages, yarns)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>Спицы: {project.needleSize} мм</span>
+                  <span className="text-gray-400">
+                    {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0) > 0 && (
+                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
+                        {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0)}г
+                      </span>
+                    )}
+                  </span>
+                </div>
               </div>
-            );
-          })}
-        </div>
-        <div className="mt-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Толщина нити</span>
-            <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
-              {formatFoldedMeterage(project.yarnUsages, yarns)}
-            </span>
-          </div>
-        </div>
-        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>Спицы: {project.needleSize} мм</span>
-          <span className="text-gray-400">
-            {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0) > 0 && (
-              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
-                {project.yarnUsages.reduce((sum, u) => sum + (u.consumed || 0), 0)}г
-              </span>
-            )}
-          </span>
-        </div>
+              {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Удалить проект "${project.name}"? Это действие нельзя отменить.`)) {
+                      onDelete(project.id);
+                    }
+                  }}
+                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
+                  title="Удалить"
+                >
+                  <i className="fas fa-trash text-xs"></i>
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
-      {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
-      {onDelete && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (confirm(`Удалить проект "${project.name}"? Это действие нельзя отменить.`)) {
-              onDelete(project.id);
-            }
-          }}
-          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
-          title="Удалить"
-        >
-          <i className="fas fa-trash text-xs"></i>
-        </button>
-      )}
-    </div>
-  );
-})}
-      </div>
-
       {filteredProjects.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <i className="fas fa-search text-4xl mb-3"></i>
           <p>Ничего не найдено</p>
         </div>
       )}
-
       {/* Modal просмотра */}
       <Modal isOpen={!!selectedProject} onClose={() => setSelectedProject(null)}>
         {selectedProject && (
@@ -193,13 +187,11 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
             )}
             <div className="p-5">
               <div className="flex items-start justify-between gap-2">
-                <h2 className="text-xl font-bold text-gray-800">{selectedProject.name}</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{selectedProject.name}</h2>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${stageColors[selectedProject.stage]}`}>
                   {stageLabels[selectedProject.stage]}
                 </span>
               </div>
-              
-              {/* ... (здесь твой код отображения пряжи, толщины, дат и заметок - он не изменился) ... */}
               <div className="mt-4">
                 <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа и сложения</h3>
                 <div className="space-y-2">
@@ -207,26 +199,26 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
                     const yarn = yarns.find((y) => y.id === usage.yarnId);
                     if (!yarn) return null;
                     return (
-                      <div key={usage.yarnId} className="bg-gray-50 rounded-lg p-2">
+                      <div key={usage.yarnId} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
                         <div className="flex items-center gap-3">
                           <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-700">{yarn.name}</p>
-                            <p className="text-xs text-gray-500">{yarn.manufacturer} • {yarn.color}</p>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{yarn.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{yarn.manufacturer} • {yarn.color}</p>
                             <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
                           </div>
-                          <div className="flex flex-col items-center bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-                            <span className="text-[10px] text-emerald-600 uppercase tracking-wide">Сложений</span>
-                            <span className="text-lg font-bold text-emerald-700">{usage.folds}</span>
+                          <div className="flex flex-col items-center bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-1.5">
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Сложений</span>
+                            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{usage.folds}</span>
                           </div>
                         </div>
                         {usage.consumed !== undefined && usage.consumed > 0 && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
+                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               <i className="fas fa-weight-hanging mr-1 text-gray-400"></i>
                               Расход на проект
                             </span>
-                            <span className="text-sm font-bold text-gray-700">{usage.consumed} г</span>
+                            <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{usage.consumed} г</span>
                           </div>
                         )}
                       </div>
@@ -234,53 +226,37 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
                   })}
                 </div>
               </div>
-
-              <div className="mt-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+              <div className="mt-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3">
                 <div className="flex items-center gap-2">
                   <i className="fas fa-calculator text-indigo-500"></i>
-                  <span className="text-xs text-indigo-600 uppercase tracking-wide font-medium">Итоговая толщина нити</span>
+                  <span className="text-xs text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Итоговая толщина нити</span>
                 </div>
-                <p className="text-lg font-bold text-indigo-700 mt-1">
+                <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300 mt-1">
                   {formatFoldedMeterage(selectedProject.yarnUsages, yarns)}
                 </p>
               </div>
-
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <InfoItem label="Спицы" value={`${selectedProject.needleSize} мм`} />
                 <InfoItem label="Дата начала" value={selectedProject.startDate || '—'} />
                 <InfoItem label="Дата завершения" value={selectedProject.endDate || '—'} />
               </div>
-
               {selectedProject.notes && (
                 <div className="mt-4">
                   <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-1">Заметки</h3>
-                  <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{selectedProject.notes}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg p-3">{selectedProject.notes}</p>
                 </div>
               )}
-
-              {/* КНОПКИ */}
+              {/* КНОПКИ В МОДАЛКЕ — только Редактировать и Закрыть */}
               <div className="mt-5 flex gap-2">
                 <button
-  onClick={(e) => {
-    e.stopPropagation(); // ← ВАЖНО! Чтобы не открывалась модалка
-    if (confirm('Удалить? Это действие нельзя отменить.')) {
-      onDelete(item.id);
-    }
-  }}
-  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
-  title="Удалить"
->
-  <i className="fas fa-trash text-xs"></i>
-</button>
-                <button 
-                  onClick={() => setEditingProject(selectedProject)} // <--- 5. Вешаем клик!
+                  onClick={() => setEditingProject(selectedProject)}
                   className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
                 >
                   <i className="fas fa-edit mr-1"></i> Редактировать
                 </button>
                 <button
                   onClick={() => setSelectedProject(null)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Закрыть
                 </button>
@@ -289,8 +265,6 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
           </>
         )}
       </Modal>
-
-      {/* <--- 6. Рендерим саму форму редактирования (как в образцах) */}
       <EditProjectForm
         isOpen={!!editingProject}
         onClose={() => setEditingProject(null)}
@@ -305,7 +279,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
 const InfoItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div>
     <span className="text-xs text-gray-400 uppercase tracking-wide">{label}</span>
-    <p className="text-sm font-medium text-gray-700">{value}</p>
+    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{value}</p>
   </div>
 );
 
