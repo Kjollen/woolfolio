@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { Pattern } from '../types';
 import Modal from './Modal';
-import EditPatternForm from './EditPatternForm'; // <--- 1. Импортируем форму
+import EditPatternForm from './EditPatternForm';
 
 interface Props {
   patterns: Pattern[];
   searchQuery: string;
-  onPatternUpdate: (pattern: Pattern) => void; // <--- 2. Добавляем пропс
+  onPatternUpdate: (pattern: Pattern) => void;
+  onDelete?: (id: string) => void; // <-- ДОБАВЛЕНО
 }
 
-const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpdate }) => { // <--- 3. Деструктурируем
+const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpdate, onDelete }) => {
   const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
-  const [editingPattern, setEditingPattern] = useState<Pattern | null>(null); // <--- 4. Состояние редактирования
-  
-  // <--- 5. Обработчик сохранения
+  const [editingPattern, setEditingPattern] = useState<Pattern | null>(null);
+
   const handleEditPattern = (updatedPattern: Pattern) => {
     onPatternUpdate(updatedPattern);
   };
@@ -30,11 +30,11 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
         {filteredPatterns.map((pattern) => (
           <div
             key={pattern.id}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+            className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
             onClick={() => setSelectedPattern(pattern)}
           >
             {pattern.photos.length > 0 ? (
-              <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
+              <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-700 overflow-hidden">
                 <img
                   src={pattern.photos[0]}
                   alt={pattern.name}
@@ -42,13 +42,13 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                 />
               </div>
             ) : (
-              <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+              <div className="aspect-[4/3] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 flex items-center justify-center">
                 <i className="fas fa-file-alt text-4xl text-emerald-200"></i>
               </div>
             )}
             <div className="p-3">
-              <h3 className="font-semibold text-gray-800 text-sm truncate">{pattern.name}</h3>
-              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+              <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{pattern.name}</h3>
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                 {pattern.photos.length > 0 && (
                   <span>
                     <i className="fas fa-image mr-1"></i>{pattern.photos.length} фото
@@ -60,23 +60,36 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                   </span>
                 )}
                 {pattern.link && (
-                  <span className="text-emerald-600">
+                  <span className="text-emerald-600 dark:text-emerald-400">
                     <i className="fas fa-link mr-1"></i>Ссылка
                   </span>
                 )}
               </div>
             </div>
+            {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(`Удалить схему "${pattern.name}"? Это действие нельзя отменить.`)) {
+                    onDelete(pattern.id);
+                  }
+                }}
+                className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
+                title="Удалить"
+              >
+                <i className="fas fa-trash text-xs"></i>
+              </button>
+            )}
           </div>
         ))}
       </div>
-
       {filteredPatterns.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <i className="fas fa-search text-4xl mb-3"></i>
           <p>Ничего не найдено</p>
         </div>
       )}
-
       {/* Modal */}
       <Modal isOpen={!!selectedPattern} onClose={() => setSelectedPattern(null)}>
         {selectedPattern && (
@@ -91,9 +104,7 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
               </div>
             )}
             <div className="p-5">
-              <h2 className="text-xl font-bold text-gray-800">{selectedPattern.name}</h2>
-
-              {/* Photos */}
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{selectedPattern.name}</h2>
               {selectedPattern.photos.length > 1 && (
                 <div className="mt-4">
                   <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Фотографии</h3>
@@ -104,8 +115,6 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                   </div>
                 </div>
               )}
-
-              {/* PDFs */}
               {selectedPattern.pdfs.length > 0 && (
                 <div className="mt-4">
                   <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Файлы</h3>
@@ -116,23 +125,21 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                         href={pdf}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 bg-red-50 rounded-lg p-3 hover:bg-red-100 transition-colors"
+                        className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                       >
-                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
                           <i className="fas fa-file-pdf text-red-500"></i>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">PDF документ #{i + 1}</p>
-                          <p className="text-xs text-emerald-600">Нажмите, чтобы открыть</p>
-                       </div>
-                       <i className="fas fa-external-link-alt text-gray-400"></i>
-                     </a>
-                   ))}
-                 </div>
-               </div>
-             )}
-
-              {/* Link */}
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">PDF документ #{i + 1}</p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">Нажмите, чтобы открыть</p>
+                        </div>
+                        <i className="fas fa-external-link-alt text-gray-400"></i>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
               {selectedPattern.link && (
                 <div className="mt-4">
                   <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Ссылка</h3>
@@ -140,25 +147,25 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                     href={selectedPattern.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-lg p-3 hover:bg-emerald-100 transition-colors"
+                    className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-lg p-3 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
                   >
-                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-external-link-alt text-emerald-600"></i>
+                    <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-external-link-alt text-emerald-600 dark:text-emerald-400"></i>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-emerald-700 truncate">{selectedPattern.link}</p>
-                      <p className="text-xs text-emerald-500">Открыть в новой вкладке</p>
+                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 truncate">{selectedPattern.link}</p>
+                      <p className="text-xs text-emerald-500 dark:text-emerald-400">Открыть в новой вкладке</p>
                     </div>
                     <i className="fas fa-arrow-right text-emerald-400"></i>
                   </a>
                 </div>
               )}
-
+              {/* КНОПКИ В МОДАЛКЕ — только Редактировать и Закрыть */}
               <div className="mt-5 flex gap-2">
-                <button 
+                <button
                   onClick={() => {
-                    setSelectedPattern(null); // <--- 6. Закрываем просмотр
-                    setEditingPattern(selectedPattern); // <--- 7. Открываем редактирование
+                    setSelectedPattern(null);
+                    setEditingPattern(selectedPattern);
                   }}
                   className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
                 >
@@ -166,7 +173,7 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
                 </button>
                 <button
                   onClick={() => setSelectedPattern(null)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Закрыть
                 </button>
@@ -175,8 +182,6 @@ const PatternsSection: React.FC<Props> = ({ patterns, searchQuery, onPatternUpda
           </>
         )}
       </Modal>
-
-      {/* <--- 8. Рендерим форму редактирования (ВНЕ модалки просмотра) */}
       <EditPatternForm
         isOpen={!!editingPattern}
         onClose={() => setEditingPattern(null)}
