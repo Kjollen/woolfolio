@@ -22,7 +22,9 @@ import pb from './lib/pocketbase';
 
 console.log('🔵 APP.TSX ЗАГРУЖЕН');
 
-// Вспомогательная функция: превращает Base64 строку в настоящий File объект
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (только ОДНО определение каждой) ===
+
+// Превращает Base64 строку в File объект
 const base64ToFile = (base64: string, filename: string): File => {
   const arr = base64.split(',');
   const mimeMatch = arr[0].match(/:(.*?);/);
@@ -34,6 +36,13 @@ const base64ToFile = (base64: string, filename: string): File => {
     u8arr[n] = bstr.charCodeAt(n);
   }
   return new File([u8arr], filename, { type: mime });
+};
+
+// Извлекает имя файла из URL PocketBase
+const extractFilename = (url: string): string => {
+  if (!url) return '';
+  const parts = url.split('/');
+  return parts[parts.length - 1] || url;
 };
 
 const sections: { id: Section; label: string; icon: string }[] = [
@@ -221,12 +230,11 @@ function App() {
     try {
       console.log('🟢 handleSaveProject вызвана, project:', project);
       
-      // Разделяем файлы: base64 (новые) и URL (существующие)
       const newPhotos = project.photos.filter((p: string) => p.startsWith('data:'));
       const existingPhotos = project.photos.filter((p: string) => !p.startsWith('data:'));
 
-      // ШАГ 1: Создаём запись через FormData (если есть новые файлы)
       let createdRecord;
+      
       if (newPhotos.length > 0) {
         const formData = new FormData();
         formData.append('name', project.name);
@@ -244,7 +252,6 @@ function App() {
 
         createdRecord = await pb.collection('projects').create(formData);
       } else {
-        // Если новых файлов нет, создаём через JSON
         createdRecord = await pb.collection('projects').create({
           name: project.name,
           stage: project.stage,
@@ -257,7 +264,6 @@ function App() {
         });
       }
 
-      // ШАГ 2: Если есть существующие файлы (URL), добавляем их через update
       if (existingPhotos.length > 0 && newPhotos.length > 0) {
         const photoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
         await pb.collection('projects').update(createdRecord.id, {
@@ -265,7 +271,6 @@ function App() {
         });
       }
 
-      // ШАГ 3: Перезагружаем данные и закрываем форму
       await loadData();
       setShowAddProject(false);
     } catch (error: any) {
@@ -289,14 +294,13 @@ function App() {
     try {
       console.log('🟢 handleSavePattern вызвана, pattern:', pattern);
       
-      // Разделяем файлы: base64 (новые) и URL (существующие)
       const newPhotos = pattern.photos.filter((p: string) => p.startsWith('data:'));
       const newPdfs = pattern.pdfs.filter((p: string) => p.startsWith('data:'));
       const existingPhotos = pattern.photos.filter((p: string) => !p.startsWith('data:'));
       const existingPdfs = pattern.pdfs.filter((p: string) => !p.startsWith('data:'));
 
-      // ШАГ 1: Создаём запись через FormData (если есть новые файлы)
       let createdRecord;
+      
       if (newPhotos.length > 0 || newPdfs.length > 0) {
         const formData = new FormData();
         formData.append('name', pattern.name);
@@ -314,7 +318,6 @@ function App() {
 
         createdRecord = await pb.collection('patterns').create(formData);
       } else {
-        // Если новых файлов нет, создаём через JSON
         createdRecord = await pb.collection('patterns').create({
           name: pattern.name,
           link: pattern.link || '',
@@ -323,7 +326,6 @@ function App() {
         });
       }
 
-      // ШАГ 2: Если есть существующие файлы (URL), добавляем их через update
       if ((existingPhotos.length > 0 || existingPdfs.length > 0) && (newPhotos.length > 0 || newPdfs.length > 0)) {
         const updateData: any = {};
         if (existingPhotos.length > 0) {
@@ -335,7 +337,6 @@ function App() {
         await pb.collection('patterns').update(createdRecord.id, updateData);
       }
 
-      // ШАГ 3: Перезагружаем данные и закрываем форму
       await loadData();
       setShowAddPattern(false);
     } catch (error: any) {
@@ -344,7 +345,7 @@ function App() {
     }
   };
 
-  // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ===
+  // === ФУНКЦИИ РЕДАКТИРОВАНИЯ (ИСПРАВЛЕНЫ) ===
 
   const handleUpdateYarn = async (updatedYarn: Yarn) => {
     try {
@@ -368,108 +369,118 @@ function App() {
     }
   };
 
-const handleUpdateProject = async (updatedProject: Project) => {
-  try {
-    const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
-    const existingPhotos = updatedProject.photos.filter((p: string) => !p.startsWith('data:'));
-    
-    let allPhotoFilenames: string[] = [];
-    
-    // ШАГ 1: Если есть новые файлы (base64), загружаем их
-    if (newPhotos.length > 0) {
-      const formData = new FormData();
-      newPhotos.forEach((photo: string, index: number) => {
-        const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-        formData.append('photos', file);
+  // ИСПРАВЛЕННАЯ функция обновления проекта
+  const handleUpdateProject = async (updatedProject: Project) => {
+    try {
+      console.log('🟢 handleUpdateProject вызвана, updatedProject:', updatedProject);
+      
+      const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = updatedProject.photos.filter((p: string) => !p.startsWith('data:'));
+      
+      let allPhotoFilenames: string[] = [];
+      
+      // ШАГ 1: Если есть новые файлы, загружаем их и получаем имена
+      if (newPhotos.length > 0) {
+        const formData = new FormData();
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+        
+        // Загружаем файлы и получаем ответ с именами
+        const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
+        console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
+        
+        // Извлекаем имена новых файлов из ответа
+        if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
+          allPhotoFilenames = [...uploadResponse.photos];
+        }
+      }
+      
+      // Добавляем имена существующих файлов
+      const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+      allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
+      
+      console.log('🟢 Итоговый список файлов:', allPhotoFilenames);
+      
+      // ШАГ 2: Обновляем текстовые поля и полный список файлов
+      await pb.collection('projects').update(updatedProject.id, {
+        name: updatedProject.name,
+        stage: updatedProject.stage,
+        needleSize: updatedProject.needleSize,
+        startDate: updatedProject.startDate,
+        endDate: updatedProject.endDate,
+        notes: updatedProject.notes,
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+        photos: allPhotoFilenames,
       });
       
-      // Получаем ответ с именами загруженных файлов
-      const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
-      
-      // Извлекаем имена новых файлов из ответа
-      if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
-        allPhotoFilenames = [...uploadResponse.photos];
-      }
+      await loadData();
+      setEditingProject(null);
+    } catch (error: any) {
+      console.error('Ошибка обновления проекта:', error);
+      alert(error.message || 'Не удалось сохранить изменения');
     }
-    
-    // Добавляем имена существующих файлов
-    const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
-    allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
-    
-    // ШАГ 2: Обновляем текстовые поля и полный список файлов
-    await pb.collection('projects').update(updatedProject.id, {
-      name: updatedProject.name,
-      stage: updatedProject.stage,
-      needleSize: updatedProject.needleSize,
-      startDate: updatedProject.startDate,
-      endDate: updatedProject.endDate,
-      notes: updatedProject.notes,
-      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-      photos: allPhotoFilenames,
-    });
-    
-    await loadData();
-    setEditingProject(null);
-  } catch (error: any) {
-    console.error('Ошибка обновления проекта:', error);
-    alert(error.message || 'Не удалось сохранить изменения');
-  }
-};
+  };
 
-const handleUpdatePattern = async (updatedPattern: Pattern) => {
-  try {
-    const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
-    const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
-    const existingPhotos = updatedPattern.photos.filter((p: string) => !p.startsWith('data:'));
-    const existingPdfs = updatedPattern.pdfs.filter((p: string) => !p.startsWith('data:'));
-    
-    let allPhotoFilenames: string[] = [];
-    let allPdfFilenames: string[] = [];
-    
-    // ШАГ 1: Загружаем новые файлы (если есть)
-    if (newPhotos.length > 0 || newPdfs.length > 0) {
-      const formData = new FormData();
-      newPhotos.forEach((photo: string, index: number) => {
-        formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
-      });
-      newPdfs.forEach((pdf: string, index: number) => {
-        formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
+  // ИСПРАВЛЕННАЯ функция обновления схемы
+  const handleUpdatePattern = async (updatedPattern: Pattern) => {
+    try {
+      console.log('🟢 handleUpdatePattern вызвана, updatedPattern:', updatedPattern);
+      
+      const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
+      const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = updatedPattern.photos.filter((p: string) => !p.startsWith('data:'));
+      const existingPdfs = updatedPattern.pdfs.filter((p: string) => !p.startsWith('data:'));
+      
+      let allPhotoFilenames: string[] = [];
+      let allPdfFilenames: string[] = [];
+      
+      // ШАГ 1: Загружаем новые файлы и получаем их имена
+      if (newPhotos.length > 0 || newPdfs.length > 0) {
+        const formData = new FormData();
+        newPhotos.forEach((photo: string, index: number) => {
+          formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
+        });
+        newPdfs.forEach((pdf: string, index: number) => {
+          formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
+        });
+        
+        const uploadResponse = await pb.collection('patterns').update(updatedPattern.id, formData);
+        console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
+        
+        if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
+          allPhotoFilenames = [...uploadResponse.photos];
+        }
+        if (uploadResponse.pdfs && Array.isArray(uploadResponse.pdfs)) {
+          allPdfFilenames = [...uploadResponse.pdfs];
+        }
+      }
+      
+      // Добавляем имена существующих файлов
+      const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+      const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
+      allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
+      allPdfFilenames = [...allPdfFilenames, ...existingPdfFilenames];
+      
+      console.log('🟢 Итоговый список фото:', allPhotoFilenames);
+      console.log('🟢 Итоговый список PDF:', allPdfFilenames);
+      
+      // ШАГ 2: Обновляем текстовые поля и полные списки файлов
+      await pb.collection('patterns').update(updatedPattern.id, {
+        name: updatedPattern.name,
+        link: updatedPattern.link || '',
+        photos: allPhotoFilenames,
+        pdfs: allPdfFilenames,
       });
       
-      // Получаем ответ с именами загруженных файлов
-      const uploadResponse = await pb.collection('patterns').update(updatedPattern.id, formData);
-      
-      // Извлекаем имена новых файлов из ответа
-      if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
-        allPhotoFilenames = [...uploadResponse.photos];
-      }
-      if (uploadResponse.pdfs && Array.isArray(uploadResponse.pdfs)) {
-        allPdfFilenames = [...uploadResponse.pdfs];
-      }
+      await loadData();
+      setEditingPattern(null);
+    } catch (error: any) {
+      console.error('Ошибка обновления схемы:', error);
+      alert(error.message || 'Не удалось сохранить изменения');
     }
-    
-    // Добавляем имена существующих файлов
-    const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
-    const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
-    allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
-    allPdfFilenames = [...allPdfFilenames, ...existingPdfFilenames];
-    
-    // ШАГ 2: Обновляем текстовые поля и полные списки файлов
-    await pb.collection('patterns').update(updatedPattern.id, {
-      name: updatedPattern.name,
-      link: updatedPattern.link || '',
-      photos: allPhotoFilenames,
-      pdfs: allPdfFilenames,
-    });
-    
-    await loadData();
-    setEditingPattern(null);
-  } catch (error: any) {
-    console.error('Ошибка обновления схемы:', error);
-    alert(error.message || 'Не удалось сохранить изменения');
-  }
-};
-
+  };
 
   // === ФУНКЦИИ УДАЛЕНИЯ ===
 
@@ -521,14 +532,12 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed h-full z-30">
-        {/* Logo */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="WoolFolio" className="w-10 h-10 rounded-lg" />
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">WoolFolio</h1>
           </div>
         </div>
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {sections.map((section) => (
             <button
@@ -556,7 +565,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
             </button>
           ))}
         </nav>
-        {/* Footer */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-700">
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center">
             WoolFolio v1.0<br />
@@ -585,7 +593,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
             : `translateX(${swipeOffset - 264}px)`,
         }}
       >
-        {/* Logo */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="WoolFolio" className="w-10 h-10 rounded-lg" />
@@ -598,7 +605,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
             <i className="fas fa-times"></i>
           </button>
         </div>
-        {/* Navigation */}
         <nav className="p-4 space-y-1">
           {sections.map((section) => (
             <button
@@ -633,17 +639,14 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
 
       {/* Main Content */}
       <div ref={mainRef} className="flex-1 md:ml-64 w-full" {...swipeHandlers}>
-        {/* Swipe edge indicator */}
         <div
           className="md:hidden fixed top-0 left-0 w-1 h-full bg-emerald-500/20 z-30 pointer-events-none transition-opacity"
           style={{ opacity: swipeOffset > 0 ? 1 : 0 }}
         ></div>
 
-        {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
           <div className="px-4 md:px-6">
             <div className="flex items-center justify-between h-16">
-              {/* Mobile menu button */}
               <button
                 className="md:hidden w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300"
                 onClick={() => setMobileMenuOpen(true)}
@@ -651,7 +654,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                 <i className="fas fa-bars text-xl"></i>
               </button>
 
-              {/* Section Title */}
               <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 {(() => {
                   const icon = sections.find(s => s.id === activeSection)?.icon;
@@ -663,7 +665,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                 <span className="hidden sm:inline">{sections.find(s => s.id === activeSection)?.label}</span>
               </h2>
 
-              {/* Search */}
               <div className="flex-1 max-w-md mx-4">
                 <div className="relative">
                   <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm"></i>
@@ -685,9 +686,7 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex items-center gap-2">
-                {/* Export button */}
                 <div className="relative">
                   <button
                     onClick={() => setExportMenuOpen(!exportMenuOpen)}
@@ -732,7 +731,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                   )}
                 </div>
 
-                {/* Theme toggle */}
                 <button
                   onClick={toggleTheme}
                   className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -741,7 +739,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                   <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
                 </button>
 
-                {/* User menu */}
                 <div className="relative group">
                   <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-medium text-sm">
@@ -764,7 +761,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
                   </div>
                 </div>
 
-                {/* Add button */}
                 {activeSection !== 'dashboard' && (
                   <button
                     onClick={handleAddClick}
@@ -779,7 +775,6 @@ const handleUpdatePattern = async (updatedPattern: Pattern) => {
           </div>
         </header>
 
-        {/* Content */}
         <div className="p-4 md:p-6">
           {renderSection()}
         </div>
