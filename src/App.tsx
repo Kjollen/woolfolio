@@ -368,83 +368,108 @@ function App() {
     }
   };
 
-  const handleUpdateProject = async (updatedProject: Project) => {
-    try {
-      const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
-      
-      // ШАГ 1: Если есть новые файлы (base64), загружаем их
-      if (newPhotos.length > 0) {
-        const formData = new FormData();
-        newPhotos.forEach((photo: string, index: number) => {
-          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-          formData.append('photos', file);
-        });
-        await pb.collection('projects').update(updatedProject.id, formData);
-      }
-      
-      // ШАГ 2: Обновляем текстовые поля и список оставшихся файлов
-      const remainingPhotos = updatedProject.photos
-        .filter((p: string) => !p.startsWith('data:'))
-        .map((url: string) => url.split('/').pop() || url);
-      
-      await pb.collection('projects').update(updatedProject.id, {
-        name: updatedProject.name,
-        stage: updatedProject.stage,
-        needleSize: updatedProject.needleSize,
-        startDate: updatedProject.startDate,
-        endDate: updatedProject.endDate,
-        notes: updatedProject.notes,
-        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-        photos: remainingPhotos,
+const handleUpdateProject = async (updatedProject: Project) => {
+  try {
+    const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
+    const existingPhotos = updatedProject.photos.filter((p: string) => !p.startsWith('data:'));
+    
+    let allPhotoFilenames: string[] = [];
+    
+    // ШАГ 1: Если есть новые файлы (base64), загружаем их
+    if (newPhotos.length > 0) {
+      const formData = new FormData();
+      newPhotos.forEach((photo: string, index: number) => {
+        const file = base64ToFile(photo, `project_photo_${index}.jpg`);
+        formData.append('photos', file);
       });
       
-      await loadData();
-      setEditingProject(null);
-    } catch (error: any) {
-      console.error('Ошибка обновления проекта:', error);
-      alert(error.message || 'Не удалось сохранить изменения');
+      // Получаем ответ с именами загруженных файлов
+      const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
+      
+      // Извлекаем имена новых файлов из ответа
+      if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
+        allPhotoFilenames = [...uploadResponse.photos];
+      }
     }
-  };
+    
+    // Добавляем имена существующих файлов
+    const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+    allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
+    
+    // ШАГ 2: Обновляем текстовые поля и полный список файлов
+    await pb.collection('projects').update(updatedProject.id, {
+      name: updatedProject.name,
+      stage: updatedProject.stage,
+      needleSize: updatedProject.needleSize,
+      startDate: updatedProject.startDate,
+      endDate: updatedProject.endDate,
+      notes: updatedProject.notes,
+      yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+      photos: allPhotoFilenames,
+    });
+    
+    await loadData();
+    setEditingProject(null);
+  } catch (error: any) {
+    console.error('Ошибка обновления проекта:', error);
+    alert(error.message || 'Не удалось сохранить изменения');
+  }
+};
 
-  const handleUpdatePattern = async (updatedPattern: Pattern) => {
-    try {
-      const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
-      const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
-      
-      // ШАГ 1: Загружаем новые файлы (если есть)
-      if (newPhotos.length > 0 || newPdfs.length > 0) {
-        const formData = new FormData();
-        newPhotos.forEach((photo: string, index: number) => {
-          formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
-        });
-        newPdfs.forEach((pdf: string, index: number) => {
-          formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
-        });
-        await pb.collection('patterns').update(updatedPattern.id, formData);
-      }
-      
-      // ШАГ 2: Обновляем текстовые поля и списки оставшихся файлов
-      const remainingPhotos = updatedPattern.photos
-        .filter((p: string) => !p.startsWith('data:'))
-        .map((url: string) => url.split('/').pop() || url);
-      const remainingPdfs = updatedPattern.pdfs
-        .filter((p: string) => !p.startsWith('data:'))
-        .map((url: string) => url.split('/').pop() || url);
-      
-      await pb.collection('patterns').update(updatedPattern.id, {
-        name: updatedPattern.name,
-        link: updatedPattern.link || '',
-        photos: remainingPhotos,
-        pdfs: remainingPdfs,
+const handleUpdatePattern = async (updatedPattern: Pattern) => {
+  try {
+    const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
+    const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
+    const existingPhotos = updatedPattern.photos.filter((p: string) => !p.startsWith('data:'));
+    const existingPdfs = updatedPattern.pdfs.filter((p: string) => !p.startsWith('data:'));
+    
+    let allPhotoFilenames: string[] = [];
+    let allPdfFilenames: string[] = [];
+    
+    // ШАГ 1: Загружаем новые файлы (если есть)
+    if (newPhotos.length > 0 || newPdfs.length > 0) {
+      const formData = new FormData();
+      newPhotos.forEach((photo: string, index: number) => {
+        formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
+      });
+      newPdfs.forEach((pdf: string, index: number) => {
+        formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
       });
       
-      await loadData();
-      setEditingPattern(null);
-    } catch (error: any) {
-      console.error('Ошибка обновления схемы:', error);
-      alert(error.message || 'Не удалось сохранить изменения');
+      // Получаем ответ с именами загруженных файлов
+      const uploadResponse = await pb.collection('patterns').update(updatedPattern.id, formData);
+      
+      // Извлекаем имена новых файлов из ответа
+      if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
+        allPhotoFilenames = [...uploadResponse.photos];
+      }
+      if (uploadResponse.pdfs && Array.isArray(uploadResponse.pdfs)) {
+        allPdfFilenames = [...uploadResponse.pdfs];
+      }
     }
-  };
+    
+    // Добавляем имена существующих файлов
+    const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+    const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
+    allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
+    allPdfFilenames = [...allPdfFilenames, ...existingPdfFilenames];
+    
+    // ШАГ 2: Обновляем текстовые поля и полные списки файлов
+    await pb.collection('patterns').update(updatedPattern.id, {
+      name: updatedPattern.name,
+      link: updatedPattern.link || '',
+      photos: allPhotoFilenames,
+      pdfs: allPdfFilenames,
+    });
+    
+    await loadData();
+    setEditingPattern(null);
+  } catch (error: any) {
+    console.error('Ошибка обновления схемы:', error);
+    alert(error.message || 'Не удалось сохранить изменения');
+  }
+};
+
 
   // === ФУНКЦИИ УДАЛЕНИЯ ===
 
