@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Yarn } from '../types';
 import Modal from './Modal';
 import FileUploader from './FileUploader';
@@ -25,6 +25,26 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
     totalPrice: '',
   });
 
+  // ✅ СБРОС ФОРМЫ ПРИ КАЖДОМ ОТКРЫТИИ
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        photo: '',
+        name: '',
+        manufacturer: '',
+        article: '',
+        composition: '',
+        color: '',
+        totalWeight: '',
+        meterage: '',
+        shop: '',
+        orderNumber: '',
+        pricePerGram: '',
+        totalPrice: '',
+      });
+    }
+  }, [isOpen]);
+
   // Автоматический расчёт общего метража
   const calculatedTotalMeterage = (() => {
     const weight = Number(formData.totalWeight);
@@ -40,34 +60,30 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  const newYarn = {
-    // Убираем id - PocketBase создаст его сам
-    photo: formData.photo || 'https://images.unsplash.com/photo-1582719508461-905c6737f1fd?w=300&h=300&fit=crop',
-    name: formData.name,
-    manufacturer: formData.manufacturer,
-    article: formData.article,
-    composition: formData.composition,
-    color: formData.color,
-    totalWeight: Number(formData.totalWeight) || 0,
-    meterage: Number(formData.meterage) || 0,
-    totalMeterage: calculatedTotalMeterage,
-    shop: formData.shop,
-    orderNumber: formData.orderNumber,
-    pricePerGram: Number(formData.pricePerGram) || 0,
-    totalPrice: Number(formData.totalPrice) || 0,
+    e.preventDefault();
+    const newYarn = {
+      photo: formData.photo || 'https://images.unsplash.com/photo-1582719508461-905c6737f1fd?w=300&h=300&fit=crop',
+      name: formData.name,
+      manufacturer: formData.manufacturer,
+      article: formData.article,
+      composition: formData.composition,
+      color: formData.color,
+      totalWeight: Number(formData.totalWeight) || 0,
+      meterage: Number(formData.meterage) || 0,
+      totalMeterage: calculatedTotalMeterage,
+      shop: formData.shop,
+      orderNumber: formData.orderNumber,
+      pricePerGram: Number(formData.pricePerGram) || 0,
+      totalPrice: Number(formData.totalPrice) || 0,
+    };
+    onSave(newYarn as any);
+    onClose();
   };
-  
-  onSave(newYarn as any);
-  onClose();
-};
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-5">
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Добавить пряжу</h2>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Фото */}
           <FileUploader
@@ -77,7 +93,6 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
             label="Фото пряжи"
             placeholder="Вставьте URL или загрузите фото"
           />
-
           {/* Название и производитель */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -106,7 +121,6 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
               />
             </div>
           </div>
-
           {/* Артикул и состав */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -134,7 +148,6 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
               />
             </div>
           </div>
-
           {/* Цвет */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -148,7 +161,6 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
             />
           </div>
-
           {/* Вес и метраж */}
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -187,13 +199,11 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
               </div>
             </div>
           </div>
-
           {/* Покупка */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               <i className="fas fa-shopping-bag mr-1 text-emerald-500"></i> Информация о покупке
             </h3>
-            
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -249,7 +259,6 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
               </div>
             </div>
           </div>
-
           {/* Кнопки */}
           <div className="flex gap-2 pt-4">
             <button
