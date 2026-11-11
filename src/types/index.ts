@@ -13,6 +13,7 @@ export interface Yarn {
   orderNumber: string;
   pricePerGram: number;
   totalPrice: number;
+  notes?: string;
 }
 
 export type ProjectStage = 'planned' | 'in_progress' | 'completed';
