@@ -16,7 +16,6 @@ import FilterBar from './FilterBar';
 const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, onDelete }) => {
   const [selectedYarn, setSelectedYarn] = useState<Yarn | null>(null);
   const [sortBy, setSortBy] = useState('name');
-  const [filterByRemaining, setFilterByRemaining] = useState('all');
 
   const filteredYarns = yarns
     .filter((yarn) => {
@@ -29,17 +28,9 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
         yarn.composition.toLowerCase().includes(q) ||
         yarn.color.toLowerCase().includes(q) ||
         yarn.shop.toLowerCase().includes(q) ||
-        yarn.orderNumber.toLowerCase().includes(q)
+        yarn.orderNumber.toLowerCase().includes(q) ||
+        (yarn.notes && yarn.notes.toLowerCase().includes(q))
       );
-    })
-    .filter((yarn) => {
-      if (filterByRemaining === 'all') return true;
-      const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
-      const percent = (remaining / yarn.totalWeight) * 100;
-      if (filterByRemaining === 'low') return percent < 30;
-      if (filterByRemaining === 'medium') return percent >= 30 && percent < 70;
-      if (filterByRemaining === 'high') return percent >= 70;
-      return true;
     })
     .sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
@@ -67,19 +58,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
         ]}
         currentSort={sortBy}
         onSortChange={setSortBy}
-        filters={[
-          {
-            label: 'Остаток',
-            options: [
-              { value: 'all', label: 'Все' },
-              { value: 'low', label: 'Мало (<30%)' },
-              { value: 'medium', label: 'Средне (30-70%)' },
-              { value: 'high', label: 'Много (>70%)' },
-            ],
-            value: filterByRemaining,
-            onChange: setFilterByRemaining,
-          },
-        ]}
+        filters={[]}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredYarns.map((yarn) => {
@@ -121,7 +100,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
                   </p>
                 </div>
               </div>
-              {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
               {onDelete && (
                 <button
                   onClick={(e) => {
@@ -146,7 +124,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
           <p>Ничего не найдено</p>
         </div>
       )}
-      {/* Modal */}
       <Modal isOpen={!!selectedYarn} onClose={() => setSelectedYarn(null)}>
         {selectedYarn && (
           <>
@@ -216,6 +193,17 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
                   <InfoItem label="Общая сумма" value={`${selectedYarn.totalPrice} ₽`} />
                 </div>
               </div>
+              {/* Примечание */}
+              {selectedYarn.notes && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <h3 className="font-semibold text-gray-700 text-sm mb-2">
+                    <i className="fas fa-sticky-note mr-1 text-amber-500"></i> Примечание
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg p-3">
+                    {selectedYarn.notes}
+                  </p>
+                </div>
+              )}
               <div className="mt-5 flex gap-2">
                 <button
                   onClick={() => onEdit?.(selectedYarn)}
