@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import MultiFileUploader from './MultiFileUploader';
+import YarnCalculator from './YarnCalculator';
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
   });
   const [photos, setPhotos] = useState<string[]>([]);
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // Заполнение формы при открытии
   useEffect(() => {
@@ -180,7 +182,18 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
               ))}
             </div>
           </div>
-
+          {/* Кнопка калькулятора */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowCalculator(true)}
+              className="w-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 py-2.5 rounded-lg font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+            >
+              <i className="fas fa-calculator mr-2"></i>
+              Рассчитать расход пряжи
+            </button>
+          </div>
+          
           {/* Спицы и даты */}
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -265,6 +278,13 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
           </div>
         </form>
       </div>
+      <YarnCalculator
+  isOpen={showCalculator}
+  onClose={() => setShowCalculator(false)}
+  yarns={yarns}
+  samples={[]} // Пока передаем пустой массив, потом подключим
+  selectedYarnIds={yarnUsages.map(u => u.yarnId)}
+/>
     </Modal>
   );
 };
