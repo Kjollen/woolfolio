@@ -69,7 +69,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sample) return;
-
     const updatedSample: Sample = {
       ...sample,
       yarnUsages,
@@ -85,7 +84,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
       measurementWidthAfter: Number(formData.measurementWidthAfter) || 10,
       measurementHeightAfter: Number(formData.measurementHeightAfter) || 10,
     };
-
     onSave(updatedSample);
     onClose();
   };
@@ -115,7 +113,7 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
                   <select
                     value={usage.yarnId}
                     onChange={(e) => updateYarnUsage(index, 'yarnId', e.target.value)}
-                    className="flex-1 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
+                    className="flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
                   >
                     {yarns.map((yarn) => (
                       <option key={yarn.id} value={yarn.id}>{yarn.name}</option>
@@ -127,12 +125,12 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
                     onChange={(e) => updateYarnUsage(index, 'folds', Number(e.target.value))}
                     min="1"
                     placeholder="×"
-                    className="w-16 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
+                    className="w-14 sm:w-16 flex-shrink-0 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100 text-center"
                   />
                   <button
                     type="button"
                     onClick={() => removeYarnUsage(index)}
-                    className="text-red-500 hover:text-red-600"
+                    className="text-red-500 hover:text-red-600 flex-shrink-0 px-1"
                   >
                     <i className="fas fa-trash text-sm"></i>
                   </button>
@@ -140,7 +138,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               ))}
             </div>
           </div>
-
           {/* Спицы */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -156,7 +153,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
             />
           </div>
-
           {/* До ВТО */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
             <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
@@ -206,7 +202,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               </div>
             </div>
           </div>
-
           {/* После ВТО */}
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
             <h3 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
@@ -256,7 +251,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               </div>
             </div>
           </div>
-
           {/* Кнопки */}
           <div className="flex gap-2 pt-4">
             <button
