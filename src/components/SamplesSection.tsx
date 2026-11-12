@@ -53,26 +53,26 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
               className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => setSelectedSample(sample)}
             >
-              <div className="grid grid-cols-2 h-36">
-                <div className="bg-gray-100 dark:bg-gray-700 overflow-hidden border-r border-gray-200">
-                  {sample.photoBefore ? (
-                    <img src={sample.photoBefore} alt="До ВТО" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-xs text-gray-400">До ВТО</span>
-                    </div>
-                  )}
-                </div>
-                <div className="bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                  {sample.photoAfter ? (
-                    <img src={sample.photoAfter} alt="После ВТО" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-xs text-gray-400">После ВТО</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <div className="grid grid-cols-2 h-36 bg-gray-100 dark:bg-gray-700">
+  <div className="bg-gray-100 dark:bg-gray-700 overflow-hidden border-r border-gray-200 flex items-center justify-center">
+    {sample.photoBefore ? (
+      <img src={sample.photoBefore} alt="До ВТО" className="w-full h-full object-contain" />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-xs text-gray-400">До ВТО</span>
+      </div>
+    )}
+  </div>
+  <div className="bg-gray-100 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
+    {sample.photoAfter ? (
+      <img src={sample.photoAfter} alt="После ВТО" className="w-full h-full object-contain" />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-xs text-gray-400">После ВТО</span>
+      </div>
+    )}
+  </div>
+</div>
               <div className="p-3">
                 <div className="space-y-1.5 mb-1">
                   {sample.yarnUsages.map((usage) => {
