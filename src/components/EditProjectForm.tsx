@@ -10,9 +10,10 @@ interface Props {
   onSave: (project: Project) => void;
   yarns: Yarn[];
   project: Project | null;
+  samples?: Sample[];
 }
 
-const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, project }) => {
+const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, project, samples = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
     stage: 'planned' as 'planned' | 'in_progress' | 'completed',
