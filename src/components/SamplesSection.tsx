@@ -184,7 +184,7 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                   <i className="fas fa-tint mr-1"></i> До ВТО
                 </h3>
                 {selectedSample.photoBefore && (
-                  <img src={selectedSample.photoBefore} alt="До ВТО" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  <img src={selectedSample.photoBefore} alt="До ВТО" className="w-full h-32 object-contain rounded-lg mb-2 bg-gray-100 dark:bg-gray-700" />
                 )}
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
@@ -217,7 +217,7 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                   <i className="fas fa-check-circle mr-1"></i> После ВТО
                 </h3>
                 {selectedSample.photoAfter && (
-                  <img src={selectedSample.photoAfter} alt="После ВТО" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  <img src={selectedSample.photoBefore} alt="До ВТО" className="w-full h-32 object-contain rounded-lg mb-2 bg-gray-100 dark:bg-gray-700" />
                 )}
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
