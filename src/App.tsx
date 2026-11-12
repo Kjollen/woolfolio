@@ -13,7 +13,6 @@ import EditYarnForm from './components/EditYarnForm';
 import EditSampleForm from './components/EditSampleForm';
 import EditPatternForm from './components/EditPatternForm';
 import EditProjectForm from './components/EditProjectForm';
-import YarnCalculator from './components/YarnCalculator'; // <-- ДОБАВЛЕНО
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -91,8 +90,7 @@ function App() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [showAddSample, setShowAddSample] = useState(false);
   const [showAddPattern, setShowAddPattern] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false); // <-- ДОБАВЛЕНО
-
+  
   // Формы редактирования
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
