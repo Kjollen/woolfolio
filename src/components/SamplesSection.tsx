@@ -3,6 +3,7 @@ import { Sample, Yarn } from '../types';
 import { formatFoldedMeterage } from '../utils/yarnCalc';
 import Modal from './Modal';
 import EditSampleForm from './EditSampleForm';
+import YarnCalculator from './YarnCalculator'; // <-- ДОБАВЛЕНО
 
 interface Props {
   samples: Sample[];
@@ -15,6 +16,7 @@ interface Props {
 const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSampleUpdate, onDelete }) => {
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
+  const [showCalculator, setShowCalculator] = useState(false); // <-- ДОБАВЛЕНО
 
   const getSampleYarns = (sample: Sample): Yarn[] =>
     sample.yarnUsages
@@ -45,14 +47,12 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredSamples.map((sample) => {
-          const densityAfter = `${((sample.stitchesWidthAfter / sample.measurementWidthAfter)).toFixed(2)}п × ${((sample.rowsHeightAfter / sample.measurementHeightAfter)).toFixed(2)}р на 1 см`;
           return (
             <div
               key={sample.id}
               className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => setSelectedSample(sample)}
             >
-              {/* Фото до/после ВТО */}
               <div className="grid grid-cols-2 h-36">
                 <div className="bg-gray-100 dark:bg-gray-700 overflow-hidden border-r border-gray-200">
                   {sample.photoBefore ? (
@@ -73,9 +73,7 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                   )}
                 </div>
               </div>
-
-              {/* Пряжа и сложения */}
-              <div className="p-3 pb-2">
+              <div className="p-3">
                 <div className="space-y-1.5 mb-1">
                   {sample.yarnUsages.map((usage) => {
                     const yarn = yarns.find((y) => y.id === usage.yarnId);
@@ -92,35 +90,26 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                     );
                   })}
                 </div>
-              </div>
-
-              {/* ЕДИНЫЙ ИНФОРМАЦИОННЫЙ БЛОК */}
-              <div className="mx-3 mb-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-3 pb-10">
-                {/* Плотность — главный параметр */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Плотность (после ВТО)</span>
-                  <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
-                    {densityAfter}
-                  </span>
-                </div>
-
-                {/* Разделитель */}
-                <div className="border-t border-indigo-200 dark:border-indigo-800 my-2"></div>
-
-                {/* Спицы и толщина нити */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-                    <i className="fas fa-ruler-horizontal"></i>
-                    <span>Спицы: <span className="font-semibold text-indigo-700 dark:text-indigo-300">{sample.needleSize} мм</span></span>
+                <div className="mt-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg p-3 pb-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Плотность (после ВТО)</span>
+                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                      {((sample.stitchesWidthAfter / sample.measurementWidthAfter)).toFixed(2)}п × {((sample.rowsHeightAfter / sample.measurementHeightAfter)).toFixed(2)}р на 1 см
+                    </span>
                   </div>
-                  <div className="text-indigo-600 dark:text-indigo-400 text-right">
-                    <span className="text-[10px] uppercase tracking-wide">Толщина:</span>
-                    <span className="font-semibold text-indigo-700 dark:text-indigo-300 ml-1">{formatFoldedMeterage(sample.yarnUsages, yarns)}</span>
+                  <div className="border-t border-indigo-200 dark:border-indigo-800 my-2"></div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                      <i className="fas fa-ruler-horizontal"></i>
+                      <span>Спицы: <span className="font-semibold text-indigo-700 dark:text-indigo-300">{sample.needleSize} мм</span></span>
+                    </div>
+                    <div className="text-indigo-600 dark:text-indigo-400 text-right">
+                      <span className="text-[10px] uppercase tracking-wide">Толщина:</span>
+                      <span className="font-semibold text-indigo-700 dark:text-indigo-300 ml-1">{formatFoldedMeterage(sample.yarnUsages, yarns)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* КНОПКА УДАЛЕНИЯ НА КАРТОЧКЕ */}
               {onDelete && (
                 <button
                   onClick={(e) => {
@@ -256,6 +245,15 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
                   </p>
                 </div>
               </div>
+              
+              {/* КНОПКА КАЛЬКУЛЯТОРА */}
+              <button
+                onClick={() => setShowCalculator(true)}
+                className="w-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 py-2.5 rounded-lg font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors mb-2"
+              >
+                <i className="fas fa-calculator mr-2"></i> Рассчитать расход пряжи
+              </button>
+
               <div className="flex gap-2">
                 <button
                   onClick={() => setEditingSample(selectedSample)}
@@ -281,6 +279,18 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
         yarns={yarns}
         sample={editingSample}
       />
+      
+      {/* КАЛЬКУЛЯТОР */}
+      {selectedSample && (
+        <YarnCalculator
+          isOpen={showCalculator}
+          onClose={() => setShowCalculator(false)}
+          yarns={yarns}
+          samples={samples}
+          selectedYarnIds={selectedSample.yarnUsages.map(u => u.yarnId)}
+          preselectedSampleId={selectedSample.id}
+        />
+      )}
     </div>
   );
 };
