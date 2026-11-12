@@ -8,11 +8,12 @@ interface Props {
   yarns: Yarn[];
   samples: Sample[];
   selectedYarnIds: string[];
+  preselectedSampleId?: string; // <-- ДОБАВЛЕНО
 }
 
 type ItemType = 'sweater' | 'hat' | 'scarf' | 'gloves' | 'vest' | 'cardigan';
 
-const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, selectedYarnIds }) => {
+const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, selectedYarnIds, preselectedSampleId }) => {
   const [itemType, setItemType] = useState<ItemType>('sweater');
   const [selectedSample, setSelectedSample] = useState<string>('');
   const [density, setDensity] = useState({ stitches: '', rows: '' });
@@ -28,9 +29,27 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     perYarn: { yarnId: string; meterage: number; weight: number }[];
   } | null>(null);
 
-  // Автоподстановка плотности из образца
+  // Автозаполнение при открытии калькулятора из образца
   useEffect(() => {
-    if (selectedSample) {
+    if (isOpen && preselectedSampleId) {
+      const sample = samples.find(s => s.id === preselectedSampleId);
+      if (sample) {
+        setSelectedSample(sample.id);
+        if (sample.measurementWidthAfter > 0 && sample.measurementHeightAfter > 0) {
+          const stitchesPer10cm = (sample.stitchesWidthAfter / sample.measurementWidthAfter) * 10;
+          const rowsPer10cm = (sample.rowsHeightAfter / sample.measurementHeightAfter) * 10;
+          setDensity({
+            stitches: stitchesPer10cm.toFixed(1),
+            rows: rowsPer10cm.toFixed(1),
+          });
+        }
+      }
+    }
+  }, [isOpen, preselectedSampleId, samples]);
+
+  // Автоподстановка плотности при ручном выборе образца из списка
+  useEffect(() => {
+    if (selectedSample && !preselectedSampleId) {
       const sample = samples.find(s => s.id === selectedSample);
       if (sample && sample.measurementWidthAfter > 0 && sample.measurementHeightAfter > 0) {
         const stitchesPer10cm = (sample.stitchesWidthAfter / sample.measurementWidthAfter) * 10;
@@ -41,7 +60,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
         });
       }
     }
-  }, [selectedSample, samples]);
+  }, [selectedSample, samples, preselectedSampleId]);
 
   // Сброс результата при изменении параметров
   useEffect(() => {
@@ -179,11 +198,8 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
         </h2>
 
         <div className="space-y-4">
-          {/* Тип изделия */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Тип изделия
-            </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Тип изделия</label>
             <select
               value={itemType}
               onChange={(e) => setItemType(e.target.value as ItemType)}
@@ -198,7 +214,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </select>
           </div>
 
-          {/* Образец */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Образец (для автоматической плотности)
@@ -229,12 +244,9 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </select>
           </div>
 
-          {/* Плотность — ИСПРАВЛЕНО: type="text" вместо number */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Петель в 10 см
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Петель в 10 см</label>
               <input
                 type="text"
                 inputMode="decimal"
@@ -248,9 +260,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Рядов в 10 см
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Рядов в 10 см</label>
               <input
                 type="text"
                 inputMode="decimal"
@@ -265,12 +275,9 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </div>
           </div>
 
-          {/* Размеры */}
           {(itemType === 'sweater' || itemType === 'cardigan' || itemType === 'vest') && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Обхват груди (см)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Обхват груди (см)</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -283,9 +290,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
 
           {itemType === 'hat' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Окружность головы (см)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Окружность головы (см)</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -299,9 +304,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
           {itemType === 'scarf' && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Длина (см)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Длина (см)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -311,9 +314,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Ширина (см)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ширина (см)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -325,7 +326,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </div>
           )}
 
-          {/* Кнопка расчета */}
           <button
             onClick={calculate}
             className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
@@ -334,7 +334,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             Рассчитать расход
           </button>
 
-          {/* Результат */}
           {result && (
             <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
               <h3 className="font-semibold text-emerald-800 dark:text-emerald-300 mb-3">
@@ -376,7 +375,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </div>
           )}
 
-          {/* Кнопки */}
           <div className="flex gap-2 pt-4">
             <button
               onClick={onClose}
