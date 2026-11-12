@@ -13,6 +13,7 @@ import EditYarnForm from './components/EditYarnForm';
 import EditSampleForm from './components/EditSampleForm';
 import EditPatternForm from './components/EditPatternForm';
 import EditProjectForm from './components/EditProjectForm';
+import YarnCalculator from './components/YarnCalculator'; // <-- ДОБАВЛЕНО
 import { useSwipeToOpen } from './hooks/useSwipeToOpen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -21,8 +22,6 @@ import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/exp
 import pb from './lib/pocketbase';
 
 console.log('🔵 APP.TSX ЗАГРУЖЕН');
-
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (только ОДНО определение каждой) ===
 
 // Превращает Base64 строку в File объект
 const base64ToFile = (base64: string, filename: string): File => {
@@ -92,6 +91,7 @@ function App() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [showAddSample, setShowAddSample] = useState(false);
   const [showAddPattern, setShowAddPattern] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false); // <-- ДОБАВЛЕНО
 
   // Формы редактирования
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
@@ -213,7 +213,7 @@ function App() {
     }
   };
 
-  // === ФУНКЦИИ СОХРАНЕНИЯ (ИСПРАВЛЕНЫ ДЛЯ ФАЙЛОВ) ===
+  // === ФУНКЦИИ СОХРАНЕНИЯ ===
 
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
@@ -345,7 +345,7 @@ function App() {
     }
   };
 
-  // === ФУНКЦИИ РЕДАКТИРОВАНИЯ (ИСПРАВЛЕНЫ) ===
+  // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ===
 
   const handleUpdateYarn = async (updatedYarn: Yarn) => {
     try {
@@ -369,7 +369,6 @@ function App() {
     }
   };
 
-  // ИСПРАВЛЕННАЯ функция обновления проекта
   const handleUpdateProject = async (updatedProject: Project) => {
     try {
       console.log('🟢 handleUpdateProject вызвана, updatedProject:', updatedProject);
@@ -379,7 +378,6 @@ function App() {
       
       let allPhotoFilenames: string[] = [];
       
-      // ШАГ 1: Если есть новые файлы, загружаем их и получаем имена
       if (newPhotos.length > 0) {
         const formData = new FormData();
         newPhotos.forEach((photo: string, index: number) => {
@@ -387,23 +385,19 @@ function App() {
           formData.append('photos', file);
         });
         
-        // Загружаем файлы и получаем ответ с именами
         const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
         console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
         
-        // Извлекаем имена новых файлов из ответа
         if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
           allPhotoFilenames = [...uploadResponse.photos];
         }
       }
       
-      // Добавляем имена существующих файлов
       const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
       allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
       
       console.log('🟢 Итоговый список файлов:', allPhotoFilenames);
       
-      // ШАГ 2: Обновляем текстовые поля и полный список файлов
       await pb.collection('projects').update(updatedProject.id, {
         name: updatedProject.name,
         stage: updatedProject.stage,
@@ -423,7 +417,6 @@ function App() {
     }
   };
 
-  // ИСПРАВЛЕННАЯ функция обновления схемы
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
     try {
       console.log('🟢 handleUpdatePattern вызвана, updatedPattern:', updatedPattern);
@@ -436,7 +429,6 @@ function App() {
       let allPhotoFilenames: string[] = [];
       let allPdfFilenames: string[] = [];
       
-      // ШАГ 1: Загружаем новые файлы и получаем их имена
       if (newPhotos.length > 0 || newPdfs.length > 0) {
         const formData = new FormData();
         newPhotos.forEach((photo: string, index: number) => {
@@ -457,7 +449,6 @@ function App() {
         }
       }
       
-      // Добавляем имена существующих файлов
       const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
       const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
       allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
@@ -466,7 +457,6 @@ function App() {
       console.log('🟢 Итоговый список фото:', allPhotoFilenames);
       console.log('🟢 Итоговый список PDF:', allPdfFilenames);
       
-      // ШАГ 2: Обновляем текстовые поля и полные списки файлов
       await pb.collection('patterns').update(updatedPattern.id, {
         name: updatedPattern.name,
         link: updatedPattern.link || '',
@@ -790,7 +780,23 @@ function App() {
       <EditYarnForm isOpen={!!editingYarn} onClose={() => setEditingYarn(null)} onSave={handleUpdateYarn} yarn={editingYarn} />
       <EditSampleForm isOpen={!!editingSample} onClose={() => setEditingSample(null)} onSave={handleUpdateSample} yarns={yarns} sample={editingSample} />
       <EditPatternForm isOpen={!!editingPattern} onClose={() => setEditingPattern(null)} onSave={handleUpdatePattern} pattern={editingPattern} />
-      <EditProjectForm isOpen={!!editingProject} onClose={() => setEditingProject(null)} onSave={handleUpdateProject} yarns={yarns} project={editingProject} />
+      <EditProjectForm 
+        isOpen={!!editingProject} 
+        onClose={() => setEditingProject(null)} 
+        onSave={handleUpdateProject} 
+        yarns={yarns} 
+        project={editingProject}
+        samples={samples} // <-- ДОБАВЛЕНО
+      />
+
+      {/* Калькулятор расхода пряжи */}
+      <YarnCalculator
+        isOpen={showCalculator}
+        onClose={() => setShowCalculator(false)}
+        yarns={yarns}
+        samples={samples}
+        selectedYarnIds={editingProject?.yarnUsages.map(u => u.yarnId) || []}
+      />
     </div>
   );
 }
