@@ -240,11 +240,23 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
             >
               <option value="">-- Выберите образец --</option>
-              {samples.map(sample => (
-                <option key={sample.id} value={sample.id}>
-                  Образец от {new Date(sample.id).toLocaleDateString()} ({sample.needleSize}мм)
-                </option>
-              ))}
+              {samples.map(sample => {
+                const stitchesPerCm = sample.measurementWidthAfter > 0 
+                  ? (sample.stitchesWidthAfter / sample.measurementWidthAfter).toFixed(2) 
+                  : '?';
+                const rowsPerCm = sample.measurementHeightAfter > 0 
+                  ? (sample.rowsHeightAfter / sample.measurementHeightAfter).toFixed(2) 
+                  : '?';
+                const dateStr = sample.created 
+                  ? new Date(sample.created).toLocaleDateString('ru-RU') 
+                  : sample.id.slice(0, 8);
+  
+                return (
+                  <option key={sample.id} value={sample.id}>
+                    {dateStr} • {sample.needleSize}мм • {stitchesPerCm}п×{rowsPerCm}р
+                  </option>
+                );
+              })}    
             </select>
           </div>
 
