@@ -29,6 +29,8 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     headCircumference: '56',
     scarfLength: '180',
     scarfWidth: '25',
+    palmCircumference: '20', // для перчаток
+    gloveHeight: '15',       // для перчаток
   });
   const [reserve, setReserve] = useState<string>('50');
   const [result, setResult] = useState<{
@@ -37,7 +39,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     perYarn: { yarnId: string; meterage: number; weight: number }[];
   } | null>(null);
 
-  // Длина по умолчанию для каждого типа изделия
   const getDefaultLength = (type: ItemType): string => {
     const defaults: Record<ItemType, string> = {
       sweater: '60',
@@ -45,32 +46,30 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
       vest: '55',
       tshirt: '55',
       tank: '50',
-      hat: '',
-      scarf: '',
+      hat: '25',
+      scarf: '180',
       gloves: '',
     };
     return defaults[type];
   };
 
-  // Свобода облегания в см для каждой посадки
   const getEase = (fitType: FitType): number => {
     const easeMap: Record<FitType, number> = {
-      slim: 6,       // облегающий
-      regular: 12,   // стандарт
-      loose: 20,     // свободный
-      oversize: 32,  // оверсайз (как в твоём PDF)
+      slim: 6,
+      regular: 12,
+      loose: 20,
+      oversize: 32,
     };
     return easeMap[fitType];
   };
 
-  // Коэффициент площади (тело + рукава)
   const getAreaMultiplier = (type: ItemType): number => {
     const multipliers: Record<ItemType, number> = {
-      sweater: 1.45,   // тело + 2 длинных рукава
-      cardigan: 1.50,  // тело + 2 длинных рукава + планки
-      vest: 1.05,      // только тело (+ небольшая горловина)
-      tshirt: 1.20,    // тело + 2 коротких рукава (~30% от длинного)
-      tank: 1.05,      // только тело (как жилет)
+      sweater: 1.45,
+      cardigan: 1.50,
+      vest: 1.05,
+      tshirt: 1.20,
+      tank: 1.05,
       hat: 0,
       scarf: 0,
       gloves: 0,
@@ -121,16 +120,14 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             rows: rowsPer10cm.toFixed(1),
           });
         }
-        // Автоподстановка длины по умолчанию
         setMeasurements(prev => ({ ...prev, length: getDefaultLength(itemType) }));
       }
     }
   }, [isOpen, preselectedSampleId, samples]);
 
-  // Сброс результата при изменении параметров
+  // Сброс результата и обновление длины при смене типа изделия
   useEffect(() => {
     setResult(null);
-    // При смене типа изделия обновляем длину по умолчанию
     setMeasurements(prev => ({ ...prev, length: getDefaultLength(itemType) }));
   }, [itemType]);
 
@@ -143,6 +140,11 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
 
     const reserveGrams = parseFloat(reserve.replace(',', '.')) || 0;
     let totalWeightGrams = 0;
+
+    // Средний метраж пряжи (для смешения — среднее арифметическое)
+    const avgMeterage = selectedYarns.reduce((sum, y) => sum + y.meterage, 0) / selectedYarns.length;
+    // Вес пряжи на 1 метр (г/м) — для формулы перчаток
+    const weightPerMeter = 100 / avgMeterage;
 
     if (calcMode === 'swatch') {
       const sWidth = parseFloat(swatchData.width.replace(',', '.'));
@@ -166,13 +168,18 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
         garmentArea = widthWithEase * length * areaMultiplier;
       } else if (itemType === 'hat') {
         const head = parseFloat(measurements.headCircumference) || 56;
-        garmentArea = head * 25;
+        const height = parseFloat(measurements.length) || 25;
+        garmentArea = head * height;
       } else if (itemType === 'scarf') {
         const len = parseFloat(measurements.scarfLength) || 180;
         const w = parseFloat(measurements.scarfWidth) || 25;
         garmentArea = len * w;
       } else if (itemType === 'gloves') {
-        garmentArea = 400;
+        // Площадь пары перчаток: 2 × (окружность ладони × высота / 2)
+        // Упрощённо: окружность × высота × 1.5 (два пальца + ладонь)
+        const palm = parseFloat(measurements.palmCircumference) || 20;
+        const height = parseFloat(measurements.gloveHeight) || 15;
+        garmentArea = palm * height * 1.5;
       }
 
       totalWeightGrams = Math.round((garmentArea / swatchArea) * sWeight) + reserveGrams;
@@ -180,23 +187,50 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     } else {
       // Ориентировочный расчёт
       const stitchesNum = parseFloat(density.stitches.replace(',', '.'));
+      const rowsNum = parseFloat(density.rows.replace(',', '.'));
+      
       if (!stitchesNum || stitchesNum <= 0) {
         alert('Введи плотность (петель в 10 см)');
         return;
       }
 
-      const bust = parseFloat(measurements.bust) || 90;
-      const ease = getEase(fit);
-      const widthWithEase = bust + ease;
-      const length = parseFloat(measurements.length) || 60;
-      const areaMultiplier = getAreaMultiplier(itemType);
-      const garmentArea = widthWithEase * length * areaMultiplier;
-
-      // Переводим площадь в вес через плотность
-      // При плотности 24п/10см и метраже 450м/100г: 1 см² ≈ 0.08 г
-      const densityFactor = stitchesNum / 24;
-      const baseWeightPerCm2 = 0.08; // грамм на см² при стандартной плотности
-      totalWeightGrams = Math.round(garmentArea * baseWeightPerCm2 * densityFactor) + reserveGrams;
+      if (itemType === 'gloves') {
+        // Формула из интернета: ((P × (H/10)) × D × W) / 1000
+        // P — окружность ладони (см), H — высота перчатки (см)
+        // D — плотность (петли × ряды на кв.см)
+        // W — вес пряжи на метр (г/м)
+        const P = parseFloat(measurements.palmCircumference) || 20;
+        const H = parseFloat(measurements.gloveHeight) || 15;
+        const D = (stitchesNum / 10) * ((rowsNum || stitchesNum) / 10); // петель на кв.см
+        const W = weightPerMeter; // г/м
+        // Для пары перчаток умножаем на 2
+        totalWeightGrams = Math.round(((P * (H / 10)) * D * W) / 1000 * 2) + reserveGrams;
+      } else if (itemType === 'hat') {
+        const head = parseFloat(measurements.headCircumference) || 56;
+        const height = parseFloat(measurements.length) || 25;
+        const area = head * height;
+        const densityFactor = stitchesNum / 24;
+        const baseWeightPerCm2 = 0.08;
+        totalWeightGrams = Math.round(area * baseWeightPerCm2 * densityFactor) + reserveGrams;
+      } else if (itemType === 'scarf') {
+        const len = parseFloat(measurements.scarfLength) || 180;
+        const w = parseFloat(measurements.scarfWidth) || 25;
+        const area = len * w;
+        const densityFactor = stitchesNum / 24;
+        const baseWeightPerCm2 = 0.08;
+        totalWeightGrams = Math.round(area * baseWeightPerCm2 * densityFactor) + reserveGrams;
+      } else {
+        // Одежда (свитер, кардиган, жилет, футболка, майка)
+        const bust = parseFloat(measurements.bust) || 90;
+        const ease = getEase(fit);
+        const widthWithEase = bust + ease;
+        const length = parseFloat(measurements.length) || 60;
+        const areaMultiplier = getAreaMultiplier(itemType);
+        const garmentArea = widthWithEase * length * areaMultiplier;
+        const densityFactor = stitchesNum / 24;
+        const baseWeightPerCm2 = 0.08;
+        totalWeightGrams = Math.round(garmentArea * baseWeightPerCm2 * densityFactor) + reserveGrams;
+      }
     }
 
     const weightPerYarn = Math.round(totalWeightGrams / selectedYarns.length);
@@ -211,9 +245,12 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     setResult({ totalMeterage, totalWeight: totalWeightGrams, perYarn });
   };
 
-  const showLengthField = ['sweater', 'cardigan', 'vest', 'tshirt', 'tank'].includes(itemType);
+  const showLengthField = ['sweater', 'cardigan', 'vest', 'tshirt', 'tank', 'hat'].includes(itemType);
   const showBustField = ['sweater', 'cardigan', 'vest', 'tshirt', 'tank'].includes(itemType);
   const showFitSelector = ['sweater', 'cardigan', 'vest', 'tshirt', 'tank'].includes(itemType);
+  const showGloveFields = itemType === 'gloves';
+  const showScarfFields = itemType === 'scarf';
+  const showHatFields = itemType === 'hat';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -333,29 +370,12 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </div>
           )}
 
-          {/* Режим: ориентировочно */}
+          {/* Режим: ориентировочно — плотность (без выбора образца!) */}
           {calcMode === 'estimated' && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Образец для плотности</label>
-                <select
-                  value={selectedSample}
-                  onChange={(e) => setSelectedSample(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                >
-                  <option value="">-- Выбери образец --</option>
-                  {samples.map(sample => {
-                    const stitchesPerCm = sample.measurementWidthAfter > 0 
-                      ? ((sample.stitchesWidthAfter / sample.measurementWidthAfter) * 10).toFixed(1) 
-                      : '?';
-                    return (
-                      <option key={sample.id} value={sample.id}>
-                        {sample.needleSize}мм • {stitchesPerCm}п/10см
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <i className="fas fa-th mr-1"></i> Плотность вязания
+              </h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Петель в 10 см</label>
@@ -364,7 +384,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                     inputMode="decimal"
                     value={density.stitches}
                     onChange={(e) => setDensity({ ...density, stitches: e.target.value.replace(/[^0-9.,]/g, '') })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
                   />
                 </div>
                 <div>
@@ -374,7 +394,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                     inputMode="decimal"
                     value={density.rows}
                     onChange={(e) => setDensity({ ...density, rows: e.target.value.replace(/[^0-9.,]/g, '') })}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
                   />
                 </div>
               </div>
@@ -401,7 +421,9 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
               )}
               {showLengthField && (
                 <div>
-                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Длина изделия (см)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    {itemType === 'hat' ? 'Высота шапки (см)' : 'Длина изделия (см)'}
+                  </label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -423,7 +445,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                   />
                 </div>
               )}
-              {itemType === 'scarf' && (
+              {showScarfFields && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Длина (см)</label>
@@ -442,6 +464,30 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                       inputMode="numeric"
                       value={measurements.scarfWidth}
                       onChange={(e) => setMeasurements({ ...measurements, scarfWidth: e.target.value.replace(/[^0-9]/g, '') })}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+              {showGloveFields && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Окружность ладони (см)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={measurements.palmCircumference}
+                      onChange={(e) => setMeasurements({ ...measurements, palmCircumference: e.target.value.replace(/[^0-9]/g, '') })}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Высота перчатки (см)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={measurements.gloveHeight}
+                      onChange={(e) => setMeasurements({ ...measurements, gloveHeight: e.target.value.replace(/[^0-9]/g, '') })}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
                     />
                   </div>
