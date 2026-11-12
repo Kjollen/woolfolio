@@ -786,17 +786,8 @@ function App() {
         onSave={handleUpdateProject} 
         yarns={yarns} 
         project={editingProject}
-        samples={samples} // <-- ДОБАВЛЕНО
       />
-
-      {/* Калькулятор расхода пряжи */}
-      <YarnCalculator
-        isOpen={showCalculator}
-        onClose={() => setShowCalculator(false)}
-        yarns={yarns}
-        samples={samples}
-        selectedYarnIds={editingProject?.yarnUsages.map(u => u.yarnId) || []}
-      />
+    
     </div>
   );
 }
