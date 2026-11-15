@@ -99,7 +99,21 @@ function App() {
 
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
-
+  
+  // Функция для постраничной загрузки
+const loadAllRecords = async (collection: string, sort: string = '-created') => {
+  let allRecords: any[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const res = await pb.collection(collection).getList(page, 100, { sort });
+    allRecords = [...allRecords, ...res.items];
+    totalPages = res.totalPages;
+    page++;
+  } while (page <= totalPages);
+  return allRecords;
+};
+  
   // Загрузка данных из PocketBase
   useEffect(() => {
     if (user) {
@@ -112,10 +126,10 @@ function App() {
     setDataLoading(true);
     try {
       const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-        pb.collection('yarns').getFullList({ sort: '-created' }),
-        pb.collection('projects').getFullList({ sort: '-created' }),
-        pb.collection('samples').getFullList({ sort: '-created' }),
-        pb.collection('patterns').getFullList({ sort: '-created' }),
+        loadAllRecords('yarns'),
+        loadAllRecords('projects'),
+        loadAllRecords('samples'),
+        loadAllRecords('patterns'),
       ]);
 
       setYarns(yarnsData as any);
