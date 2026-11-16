@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Pattern } from '../types';
 import Modal from './Modal';
 import MultiFileUploader from './MultiFileUploader';
@@ -16,6 +16,9 @@ const EditPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave, pattern }) 
     link: '',
   });
   const [photos, setPhotos] = useState<string[]>([]);
+  // Настоящие НОВЫЕ выбранные файлы (позиции соответствуют photos/pdfs)
+  const photoFilesRef = useRef<(File | null)[]>([]);
+  const pdfFilesRef = useRef<(File | null)[]>([]);
   const [pdfs, setPdfs] = useState<string[]>([]);
 
   // Заполнение формы при открытии
@@ -44,9 +47,11 @@ const EditPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave, pattern }) 
       link: formData.link,
       photos,
       pdfs,
+      photosFiles: photoFilesRef.current,
+      pdfsFiles: pdfFilesRef.current,
     };
 
-    onSave(updatedPattern);
+    onSave(updatedPattern as any);
     onClose();
   };
 
@@ -74,6 +79,7 @@ const EditPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave, pattern }) 
           <MultiFileUploader
             values={photos}
             onChange={setPhotos}
+            onFilesSelected={(fs) => { photoFilesRef.current = fs; }}
             accept="image/*"
             label="Фото схемы"
             placeholder="Вставьте URL или загрузите фото"
@@ -84,6 +90,7 @@ const EditPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave, pattern }) 
           <MultiFileUploader
             values={pdfs}
             onChange={setPdfs}
+            onFilesSelected={(fs) => { pdfFilesRef.current = fs; }}
             accept=".pdf,application/pdf"
             label="PDF файлы"
             placeholder="Вставьте URL или загрузите PDF"

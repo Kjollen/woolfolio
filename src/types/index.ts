@@ -1,6 +1,9 @@
 export interface Yarn {
   id: string;
   photo: string;
+  /** Служебное поле формы: НАСТОЯЩИЙ выбранный файл фото.
+   * App загружает его в PocketBase как файл и сохраняет URL в photo. */
+  photoFile?: File;
   name: string;
   manufacturer: string;
   article: string;
@@ -28,6 +31,8 @@ export interface YarnUsage {
 export interface Project {
   id: string;
   photos: string[];
+  /** Служебное поле формы: массив настоящих выбранных файлов (позиции = photos) */
+  photosFiles?: (File | null)[];
   name: string;
   stage: ProjectStage;
   yarnUsages: YarnUsage[]; // массив пряжа + сложения
@@ -43,6 +48,9 @@ export interface Sample {
   yarnUsages: YarnUsage[];
   needleSize: number;
   photoBefore: string;
+  /** Служебные поля форм: настоящие выбранные файлы (загружаются в PocketBase) */
+  photoBeforeFile?: File;
+  photoAfterFile?: File;
   stitchesWidthBefore: number;
   rowsHeightBefore: number;
   measurementWidthBefore: number;
@@ -57,6 +65,9 @@ export interface Sample {
 export interface Pattern {
   id: string;
   photos: string[];
+  /** Служебные поля формы: массивы настоящих выбранных файлов (позиции = photos/pdfs) */
+  photosFiles?: (File | null)[];
+  pdfsFiles?: (File | null)[];
   pdfs: string[];
   name: string;
   link?: string; // ссылка на схему/описание

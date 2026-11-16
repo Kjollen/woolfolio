@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import MultiFileUploader from './MultiFileUploader';
@@ -21,6 +21,8 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
   });
   
   const [photos, setPhotos] = useState<string[]>([]);
+  // Настоящие выбранные файлы (позиции соответствуют photos)
+  const photoFilesRef = useRef<(File | null)[]>([]);
 
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
@@ -49,6 +51,7 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
   const newProject = {
     // Убираем id
     photos,
+    photosFiles: photoFilesRef.current,
     name: formData.name,
     stage: formData.stage,
     yarnUsages,
@@ -214,6 +217,7 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
           <MultiFileUploader
             values={photos}
             onChange={setPhotos}
+            onFilesSelected={(fs) => { photoFilesRef.current = fs; }}
             accept="image/*"
             label="Фото проекта"
             placeholder="Вставьте URL или загрузите фото"
