@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Pattern } from '../types';
 import Modal from './Modal';
 import MultiFileUploader from './MultiFileUploader';
@@ -17,30 +17,25 @@ const AddPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   
   const [photos, setPhotos] = useState<string[]>([]);
   const [pdfs, setPdfs] = useState<string[]>([]);
-  // Настоящие выбранные файлы (позиции соответствуют photos/pdfs)
-  const photoFilesRef = useRef<(File | null)[]>([]);
-  const pdfFilesRef = useRef<(File | null)[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  const newPattern = {
-    // Убираем id
-    name: formData.name,
-    photos,
-    pdfs,
-    photosFiles: photoFilesRef.current,
-    pdfsFiles: pdfFilesRef.current,
-    link: formData.link,
+    e.preventDefault();
+    
+    const newPattern: Pattern = {
+      id: `pat_${Date.now()}`,
+      name: formData.name,
+      photos,
+      pdfs,
+      link: formData.link,
+    };
+    
+    onSave(newPattern);
+    onClose();
   };
-  
-  onSave(newPattern as any);
-  onClose();
-};
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -67,7 +62,6 @@ const AddPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
           <MultiFileUploader
             values={photos}
             onChange={setPhotos}
-            onFilesSelected={(fs) => { photoFilesRef.current = fs; }}
             accept="image/*"
             label="Фото схемы"
             placeholder="Вставьте URL или загрузите фото"
@@ -78,7 +72,6 @@ const AddPatternForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
           <MultiFileUploader
             values={pdfs}
             onChange={setPdfs}
-            onFilesSelected={(fs) => { pdfFilesRef.current = fs; }}
             accept=".pdf,application/pdf"
             label="PDF файлы"
             placeholder="Вставьте URL или загрузите PDF"
