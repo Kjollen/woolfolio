@@ -19,12 +19,21 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
 import pb from './lib/pocketbase';
+
 console.log('🔵 APP.TSX ЗАГРУЖЕН');
 
-// Превращает Base64 строку в File объект (быстрый вариант через fetch/Blob)
-const base64ToFile = async (base64: string, filename: string): Promise<File> => {
-  const blob = await fetch(base64).then((r) => r.blob());
-  return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+// Превращает Base64 строку в File объект
+const base64ToFile = (base64: string, filename: string): File => {
+  const arr = base64.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
 };
 
 // Извлекает имя файла из URL PocketBase
@@ -32,35 +41,6 @@ const extractFilename = (url: string): string => {
   if (!url) return '';
   const parts = url.split('/');
   return parts[parts.length - 1] || url;
-};
-
-// Вспомогательные предикаты
-const isDataUrl = (v: any): v is string => typeof v === 'string' && v.startsWith('data:');
-const isUploadedFileUrl = (v: any): v is string =>
-  typeof v === 'string' && v.includes('/api/files/');
-
-// Загружает одно фото (base64 data-URL или обычный URL) в PocketBase как ФАЙЛ
-// и возвращает URL загруженного файла. Отправляется один небольшой
-// multipart-запрос с самим файлом — без base64-текста в полях записи.
-const uploadPhotoValue = async (value: string, prefix: string, collection: string): Promise<string> => {
-  if (!value) return '';
-  if (!isDataUrl(value)) return value; // уже URL — ничего не делаем
-  const isPdf = value.startsWith('data:application/pdf');
-  const file = await base64ToFile(value, `${prefix}_${Date.now()}${isPdf ? '.pdf' : '.jpg'}`);
-  const formData = new FormData();
-  formData.append('file', file);
-  const record = await pb.collection(collection).create(formData, { requestKey: null });
-  return pb.files.getURL(record, record.file);
-};
-
-// Последовательная загрузка нескольких значений (по одному файлу за запрос),
-// чтобы не «вешать» сервер параллельными тяжёлыми аплоадами.
-const uploadPhotoValues = async (values: string[], prefix: string, collection: string): Promise<string[]> => {
-  const result: string[] = [];
-  for (let i = 0; i < values.length; i++) {
-    result.push(await uploadPhotoValue(values[i], `${prefix}_${i}`, collection));
-  }
-  return result;
 };
 
 const sections: { id: Section; label: string; icon: string }[] = [
@@ -110,7 +90,7 @@ function App() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [showAddSample, setShowAddSample] = useState(false);
   const [showAddPattern, setShowAddPattern] = useState(false);
-
+  
   // Формы редактирования
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
@@ -119,86 +99,54 @@ function App() {
 
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
-
+  
   // Функция для постраничной загрузки
-const loadAllRecords = async (collection: string, sort: string = '-created') => {
+const loadAllRecords = async (collection: string, sort: string = '-created', fields?: string) => {
   let allRecords: any[] = [];
   let page = 1;
   let totalPages = 1;
   do {
-    const res = await pb.collection(collection).getList(page, 100, { sort });
+    const options: any = { sort };
+    if (fields) options.fields = fields;
+    const res = await pb.collection(collection).getList(page, 100, options);
     allRecords = [...allRecords, ...res.items];
     totalPages = res.totalPages;
     page++;
   } while (page <= totalPages);
   return allRecords;
 };
-
+  
   // Загрузка данных из PocketBase
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
-
   useEffect(() => {
     if (user) {
       loadData();
     }
   }, [user]);
 
-  // Чистим «висящие» незавершённые запросы (например, после зависаний)
-  useEffect(() => {
-    try {
-      pb.cancelRequestsWithPattern?.('*');
-    } catch (e) { /* noop */ }
-  }, []);
+const loadData = async () => {
+  console.log('🟡 loadData вызвана, user:', user);
+  setDataLoading(true);
+  try {
+    // Списки полей БЕЗ photo-полей (экономим 200+ МБ!)
+    const yarnFields = 'id,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,created,updated';
+    const sampleFields = 'id,name,yarn,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,yarnUsages,notes,created,updated';
 
-  // Безопасный парсинг массива URL/файлов из поля PocketBase
-  const parseFilesField = (value: any): string[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value.filter(Boolean);
-    return safeParseArray(value).filter(Boolean);
-  };
+    const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+      loadAllRecords('yarns', '-created', yarnFields),
+      loadAllRecords('projects'),
+      loadAllRecords('samples', '-created', sampleFields),
+      loadAllRecords('patterns'),
+    ]);
 
-  const loadData = async () => {
-    console.log('🟡 loadData вызвана, user:', user);
-    setDataLoading(true);
-    try {
-      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-        loadAllRecords('yarns', '-created'),
-        loadAllRecords('projects'),
-        loadAllRecords('samples', '-created'),
-        loadAllRecords('patterns'),
-      ]);
+      setYarns(yarnsData as any);
+      setSamples(samplesData as any);
 
-      // Пряжа: фото — миниатюра файла photoFile либо URL из текстового поля photo
-      const parsedYarns = yarnsData.map((y: any) => ({
-        ...y,
-        photo: y.photoFile
-          ? pb.files.getURL(y, y.photoFile, { thumb: '400x0' })
-          : (typeof y.photo === 'string' && y.photo ? y.photo : ''),
-      }));
-      if (mountedRef.current) setYarns(parsedYarns as any);
-
-      // Образцы: превью из файловых полей либо из текстовых photoBefore/photoAfter
-      const parsedSamples = samplesData.map((s: any) => ({
-        ...s,
-        photoBefore: s.photoBeforeFile
-          ? pb.files.getURL(s, s.photoBeforeFile, { thumb: '400x0' })
-          : (typeof s.photoBefore === 'string' && s.photoBefore ? s.photoBefore : ''),
-        photoAfter: s.photoAfterFile
-          ? pb.files.getURL(s, s.photoAfterFile, { thumb: '400x0' })
-          : (typeof s.photoAfter === 'string' && s.photoAfter ? s.photoAfter : ''),
-      }));
-      if (mountedRef.current) setSamples(parsedSamples as any);
-
-      // Проекты: БЕЗОПАСНЫЙ парсинг
+      // 1. Проекты: БЕЗОПАСНЫЙ парсинг
       const parsedProjects = projectsData.map((p: any) => {
         let safeYarnUsages = [];
         if (p.yarnUsages) {
           if (typeof p.yarnUsages === 'string') {
-            try { safeYarnUsages = JSON.parse(p.yarnUsages); }
+            try { safeYarnUsages = JSON.parse(p.yarnUsages); } 
             catch (e) { safeYarnUsages = []; }
           } else if (Array.isArray(p.yarnUsages)) {
             safeYarnUsages = p.yarnUsages;
@@ -206,23 +154,24 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
         }
         return {
           ...p,
-          photos: parseFilesField(p.photos),
+          photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
           yarnUsages: safeYarnUsages,
         };
       });
-      if (mountedRef.current) setProjects(parsedProjects);
+      setProjects(parsedProjects);
 
-      // Схемы: БЕЗОПАСНЫЙ парсинг
+      // 2. Схемы: БЕЗОПАСНЫЙ парсинг
       const parsedPatterns = patternsData.map((p: any) => ({
         ...p,
-        photos: parseFilesField(p.photos),
-        pdfs: parseFilesField(p.pdfs),
+        photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        pdfs: Array.isArray(p.pdfs) ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
       }));
-      if (mountedRef.current) setPatterns(parsedPatterns);
+      setPatterns(parsedPatterns);
+
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
     } finally {
-      if (mountedRef.current) setDataLoading(false);
+      setDataLoading(false);
     }
   };
 
@@ -284,62 +233,10 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   // === ФУНКЦИИ СОХРАНЕНИЯ ===
 
-  // Строит данные для отправки в PocketBase: фото-значения, пришедшие из
-  // загрузчика как base64, сначала отправляются на сервер ОТДЕЛЬНЫМИ маленькими
-  // запросами (по одному файлу), и в запись попадают только короткие URL.
-  // Так создание/обновление карточки остаётся быстрым и не «вешает» сервер.
-  const buildRecordData = async (obj: any, photoFields: string[], collection: string): Promise<any> => {
-    // Сначала загружаем все новые файлы (base64) — по одному за запрос
-    const uploadedUrls = new Map<string, string>(); // dataURL -> URL файла в PocketBase
-    const collectValues: string[] = [];
-    for (const field of photoFields) {
-      const value = obj[field];
-      if (Array.isArray(value)) collectValues.push(...value);
-      else if (typeof value === 'string') collectValues.push(value);
-    }
-    for (const v of collectValues) {
-      if (isDataUrl(v) && !uploadedUrls.has(v)) {
-        const url = await uploadPhotoValue(v, collection, collection);
-        uploadedUrls.set(v, url);
-      }
-    }
-
-    const toJsonString = (v: any) => JSON.stringify(v ?? null);
-
-    const data: any = {};
-    for (const key of Object.keys(obj)) {
-      if (key === 'id' || key === 'created' || key === 'updated') continue;
-      let value = obj[key];
-      if (photoFields.includes(key)) {
-        if (Array.isArray(value)) {
-          // Массивы фото (photos/pdfs) сохраняем как JSON-строку со списком URL
-          value = toJsonString(
-            value.map((v: string) => (isDataUrl(v) ? uploadedUrls.get(v) || '' : v)).filter(Boolean)
-          );
-        } else if (isUploadedFileUrl(value)) {
-          // Уже загруженный файл PocketBase: поле Text хранит полный URL — оставляем как есть
-        } else if (isDataUrl(value)) {
-          value = uploadedUrls.get(value) || '';
-        } else if (typeof value === 'string' && value.startsWith('data:')) {
-          value = '';
-        }
-      } else if (typeof value === 'object' && value !== null) {
-        // Объекты/массивы (yarnUsages) PocketBase в текстовых полях хранит строками
-        value = toJsonString(value);
-      }
-      data[key] = value;
-    }
-    return data;
-  };
-
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
-      console.log('🟢 handleSaveYarn');
-      const created = await pb.collection('yarns').create(
-        await buildRecordData({ ...yarn, photoFile: '' }, ['photo'], 'yarns'),
-        { requestKey: null }
-      );
-      await loadData();
+      const created = await pb.collection('yarns').create(yarn);
+      setYarns([created as any, ...yarns]);
       setShowAddYarn(false);
     } catch (error) {
       console.error('Ошибка сохранения пряжи:', error);
@@ -349,11 +246,49 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleSaveProject = async (project: Project) => {
     try {
-      console.log('🟢 handleSaveProject вызвана');
-      await pb.collection('projects').create(
-        await buildRecordData({ ...project }, ['photos'], 'projects'),
-        { requestKey: null }
-      );
+      console.log('🟢 handleSaveProject вызвана, project:', project);
+      
+      const newPhotos = project.photos.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = project.photos.filter((p: string) => !p.startsWith('data:'));
+
+      let createdRecord;
+      
+      if (newPhotos.length > 0) {
+        const formData = new FormData();
+        formData.append('name', project.name);
+        formData.append('stage', project.stage);
+        formData.append('needleSize', String(project.needleSize || 0));
+        formData.append('startDate', project.startDate || '');
+        formData.append('endDate', project.endDate || '');
+        formData.append('notes', project.notes || '');
+        formData.append('yarnUsages', JSON.stringify(project.yarnUsages || []));
+        
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+
+        createdRecord = await pb.collection('projects').create(formData);
+      } else {
+        createdRecord = await pb.collection('projects').create({
+          name: project.name,
+          stage: project.stage,
+          needleSize: project.needleSize,
+          startDate: project.startDate,
+          endDate: project.endDate,
+          notes: project.notes,
+          yarnUsages: JSON.stringify(project.yarnUsages || []),
+          photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
+        });
+      }
+
+      if (existingPhotos.length > 0 && newPhotos.length > 0) {
+        const photoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+        await pb.collection('projects').update(createdRecord.id, {
+          photos: photoFilenames,
+        });
+      }
+
       await loadData();
       setShowAddProject(false);
     } catch (error: any) {
@@ -364,16 +299,8 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleSaveSample = async (sample: Sample) => {
     try {
-      console.log('🟢 handleSaveSample');
-      await pb.collection('samples').create(
-        await buildRecordData(
-          { ...sample, photoBeforeFile: '', photoAfterFile: '' },
-          ['photoBefore', 'photoAfter'],
-          'samples'
-        ),
-        { requestKey: null }
-      );
-      await loadData();
+      const created = await pb.collection('samples').create(sample);
+      setSamples([created as any, ...samples]);
       setShowAddSample(false);
     } catch (error) {
       console.error('Ошибка сохранения образца:', error);
@@ -383,11 +310,51 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleSavePattern = async (pattern: Pattern) => {
     try {
-      console.log('🟢 handleSavePattern вызвана');
-      await pb.collection('patterns').create(
-        await buildRecordData({ ...pattern }, ['photos', 'pdfs'], 'patterns'),
-        { requestKey: null }
-      );
+      console.log('🟢 handleSavePattern вызвана, pattern:', pattern);
+      
+      const newPhotos = pattern.photos.filter((p: string) => p.startsWith('data:'));
+      const newPdfs = pattern.pdfs.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = pattern.photos.filter((p: string) => !p.startsWith('data:'));
+      const existingPdfs = pattern.pdfs.filter((p: string) => !p.startsWith('data:'));
+
+      let createdRecord;
+      
+      if (newPhotos.length > 0 || newPdfs.length > 0) {
+        const formData = new FormData();
+        formData.append('name', pattern.name);
+        formData.append('link', pattern.link || '');
+        
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+        
+        newPdfs.forEach((pdf: string, index: number) => {
+          const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
+          formData.append('pdfs', file);
+        });
+
+        createdRecord = await pb.collection('patterns').create(formData);
+      } else {
+        createdRecord = await pb.collection('patterns').create({
+          name: pattern.name,
+          link: pattern.link || '',
+          photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
+          pdfs: existingPdfs.map((url: string) => url.split('/').pop() || url),
+        });
+      }
+
+      if ((existingPhotos.length > 0 || existingPdfs.length > 0) && (newPhotos.length > 0 || newPdfs.length > 0)) {
+        const updateData: any = {};
+        if (existingPhotos.length > 0) {
+          updateData.photos = existingPhotos.map((url: string) => url.split('/').pop() || url);
+        }
+        if (existingPdfs.length > 0) {
+          updateData.pdfs = existingPdfs.map((url: string) => url.split('/').pop() || url);
+        }
+        await pb.collection('patterns').update(createdRecord.id, updateData);
+      }
+
       await loadData();
       setShowAddPattern(false);
     } catch (error: any) {
@@ -400,13 +367,8 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleUpdateYarn = async (updatedYarn: Yarn) => {
     try {
-      console.log('🟢 handleUpdateYarn');
-      await pb.collection('yarns').update(
-        updatedYarn.id,
-        await buildRecordData({ ...updatedYarn, photoFile: '' }, ['photo'], 'yarns'),
-        { requestKey: null }
-      );
-      await loadData();
+      const updated = await pb.collection('yarns').update(updatedYarn.id, updatedYarn);
+      setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
       setEditingYarn(null);
     } catch (error) {
       console.error('Ошибка обновления пряжи:', error);
@@ -416,17 +378,8 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleUpdateSample = async (updatedSample: Sample) => {
     try {
-      console.log('🟢 handleUpdateSample');
-      await pb.collection('samples').update(
-        updatedSample.id,
-        await buildRecordData(
-          { ...updatedSample, photoBeforeFile: '', photoAfterFile: '' },
-          ['photoBefore', 'photoAfter'],
-          'samples'
-        ),
-        { requestKey: null }
-      );
-      await loadData();
+      await pb.collection('samples').update(updatedSample.id, updatedSample);
+      setSamples(samples.map(s => s.id === updatedSample.id ? updatedSample : s));
       setEditingSample(null);
     } catch (error) {
       console.error('Ошибка обновления образца:', error);
@@ -436,12 +389,44 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleUpdateProject = async (updatedProject: Project) => {
     try {
-      console.log('🟢 handleUpdateProject вызвана');
-      await pb.collection('projects').update(
-        updatedProject.id,
-        await buildRecordData({ ...updatedProject }, ['photos'], 'projects'),
-        { requestKey: null }
-      );
+      console.log('🟢 handleUpdateProject вызвана, updatedProject:', updatedProject);
+      
+      const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = updatedProject.photos.filter((p: string) => !p.startsWith('data:'));
+      
+      let allPhotoFilenames: string[] = [];
+      
+      if (newPhotos.length > 0) {
+        const formData = new FormData();
+        newPhotos.forEach((photo: string, index: number) => {
+          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
+          formData.append('photos', file);
+        });
+        
+        const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
+        console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
+        
+        if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
+          allPhotoFilenames = [...uploadResponse.photos];
+        }
+      }
+      
+      const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+      allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
+      
+      console.log('🟢 Итоговый список файлов:', allPhotoFilenames);
+      
+      await pb.collection('projects').update(updatedProject.id, {
+        name: updatedProject.name,
+        stage: updatedProject.stage,
+        needleSize: updatedProject.needleSize,
+        startDate: updatedProject.startDate,
+        endDate: updatedProject.endDate,
+        notes: updatedProject.notes,
+        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
+        photos: allPhotoFilenames,
+      });
+      
       await loadData();
       setEditingProject(null);
     } catch (error: any) {
@@ -452,12 +437,51 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
     try {
-      console.log('🟢 handleUpdatePattern вызвана');
-      await pb.collection('patterns').update(
-        updatedPattern.id,
-        await buildRecordData({ ...updatedPattern }, ['photos', 'pdfs'], 'patterns'),
-        { requestKey: null }
-      );
+      console.log('🟢 handleUpdatePattern вызвана, updatedPattern:', updatedPattern);
+      
+      const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
+      const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
+      const existingPhotos = updatedPattern.photos.filter((p: string) => !p.startsWith('data:'));
+      const existingPdfs = updatedPattern.pdfs.filter((p: string) => !p.startsWith('data:'));
+      
+      let allPhotoFilenames: string[] = [];
+      let allPdfFilenames: string[] = [];
+      
+      if (newPhotos.length > 0 || newPdfs.length > 0) {
+        const formData = new FormData();
+        newPhotos.forEach((photo: string, index: number) => {
+          formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
+        });
+        newPdfs.forEach((pdf: string, index: number) => {
+          formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
+        });
+        
+        const uploadResponse = await pb.collection('patterns').update(updatedPattern.id, formData);
+        console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
+        
+        if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
+          allPhotoFilenames = [...uploadResponse.photos];
+        }
+        if (uploadResponse.pdfs && Array.isArray(uploadResponse.pdfs)) {
+          allPdfFilenames = [...uploadResponse.pdfs];
+        }
+      }
+      
+      const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
+      const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
+      allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
+      allPdfFilenames = [...allPdfFilenames, ...existingPdfFilenames];
+      
+      console.log('🟢 Итоговый список фото:', allPhotoFilenames);
+      console.log('🟢 Итоговый список PDF:', allPdfFilenames);
+      
+      await pb.collection('patterns').update(updatedPattern.id, {
+        name: updatedPattern.name,
+        link: updatedPattern.link || '',
+        photos: allPhotoFilenames,
+        pdfs: allPdfFilenames,
+      });
+      
       await loadData();
       setEditingPattern(null);
     } catch (error: any) {
@@ -541,9 +565,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
               <span className="flex-1 text-left">{section.label}</span>
               {getCount(section.id) !== null && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  activeSection === section.id
-                    ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  activeSection === section.id ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}>
                   {getCount(section.id)}
                 </span>
@@ -613,9 +635,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
               <span className="flex-1 text-left">{section.label}</span>
               {getCount(section.id) !== null && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  activeSection === section.id
-                    ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  activeSection === section.id ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}>
                   {getCount(section.id)}
                 </span>
@@ -778,13 +798,14 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       <EditYarnForm isOpen={!!editingYarn} onClose={() => setEditingYarn(null)} onSave={handleUpdateYarn} yarn={editingYarn} />
       <EditSampleForm isOpen={!!editingSample} onClose={() => setEditingSample(null)} onSave={handleUpdateSample} yarns={yarns} sample={editingSample} />
       <EditPatternForm isOpen={!!editingPattern} onClose={() => setEditingPattern(null)} onSave={handleUpdatePattern} pattern={editingPattern} />
-      <EditProjectForm
-        isOpen={!!editingProject}
-        onClose={() => setEditingProject(null)}
-        onSave={handleUpdateProject}
-        yarns={yarns}
+      <EditProjectForm 
+        isOpen={!!editingProject} 
+        onClose={() => setEditingProject(null)} 
+        onSave={handleUpdateProject} 
+        yarns={yarns} 
         project={editingProject}
       />
+    
     </div>
   );
 }
