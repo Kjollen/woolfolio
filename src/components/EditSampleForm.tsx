@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sample, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import FileUploader from './FileUploader';
@@ -28,13 +28,8 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
   // Заполнение формы при открытии
-  const photoBeforeFileRef = useRef<File | null>(null);
-  const photoAfterFileRef = useRef<File | null>(null);
-
   useEffect(() => {
     if (sample) {
-      photoBeforeFileRef.current = null;
-      photoAfterFileRef.current = null;
       setFormData({
         needleSize: String(sample.needleSize),
         photoBefore: sample.photoBefore || '',
@@ -78,20 +73,18 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
       ...sample,
       yarnUsages,
       needleSize: Number(formData.needleSize) || 0,
-      photoBeforeFile: photoBeforeFileRef.current || undefined,
       photoBefore: formData.photoBefore,
       stitchesWidthBefore: Number(formData.stitchesWidthBefore) || 0,
       rowsHeightBefore: Number(formData.rowsHeightBefore) || 0,
       measurementWidthBefore: Number(formData.measurementWidthBefore) || 10,
       measurementHeightBefore: Number(formData.measurementHeightBefore) || 10,
-      photoAfterFile: photoAfterFileRef.current || undefined,
       photoAfter: formData.photoAfter,
       stitchesWidthAfter: Number(formData.stitchesWidthAfter) || 0,
       rowsHeightAfter: Number(formData.rowsHeightAfter) || 0,
       measurementWidthAfter: Number(formData.measurementWidthAfter) || 10,
       measurementHeightAfter: Number(formData.measurementHeightAfter) || 10,
     };
-    onSave(updatedSample as any);
+    onSave(updatedSample);
     onClose();
   };
 
@@ -169,7 +162,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               <FileUploader
                 value={formData.photoBefore}
                 onChange={(value) => setFormData({ ...formData, photoBefore: value })}
-                onFileChange={(file) => { photoBeforeFileRef.current = file; }}
                 accept="image/*"
                 label="Фото до ВТО"
                 placeholder="Вставьте URL или загрузите фото"
@@ -219,7 +211,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               <FileUploader
                 value={formData.photoAfter}
                 onChange={(value) => setFormData({ ...formData, photoAfter: value })}
-                onFileChange={(file) => { photoAfterFileRef.current = file; }}
                 accept="image/*"
                 label="Фото после ВТО"
                 placeholder="Вставьте URL или загрузите фото"
