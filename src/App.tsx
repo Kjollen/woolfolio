@@ -19,7 +19,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthScreen from './components/AuthScreen';
 import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/export';
 import pb from './lib/pocketbase';
-
 console.log('🔵 APP.TSX ЗАГРУЖЕН');
 
 // Превращает Base64 строку в File объект
@@ -90,7 +89,7 @@ function App() {
   const [showAddProject, setShowAddProject] = useState(false);
   const [showAddSample, setShowAddSample] = useState(false);
   const [showAddPattern, setShowAddPattern] = useState(false);
-  
+
   // Формы редактирования
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
@@ -99,23 +98,23 @@ function App() {
 
   // Swipe to open sidebar
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
-  
+
   // Функция для постраничной загрузки
-const loadAllRecords = async (collection: string, sort: string = '-created', fields?: string) => {
-  let allRecords: any[] = [];
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const options: any = { sort };
-    if (fields) options.fields = fields;
-    const res = await pb.collection(collection).getList(page, 100, options);
-    allRecords = [...allRecords, ...res.items];
-    totalPages = res.totalPages;
-    page++;
-  } while (page <= totalPages);
-  return allRecords;
-};
-  
+  const loadAllRecords = async (collection: string, sort: string = '-created', fields?: string) => {
+    let allRecords: any[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const options: any = { sort };
+      if (fields) options.fields = fields;
+      const res = await pb.collection(collection).getList(page, 100, options);
+      allRecords = [...allRecords, ...res.items];
+      totalPages = res.totalPages;
+      page++;
+    } while (page <= totalPages);
+    return allRecords;
+  };
+
   // Загрузка данных из PocketBase
   useEffect(() => {
     if (user) {
@@ -123,30 +122,42 @@ const loadAllRecords = async (collection: string, sort: string = '-created', fie
     }
   }, [user]);
 
-const loadData = async () => {
-  console.log('🟡 loadData вызвана, user:', user);
-  setDataLoading(true);
-  try {
-    // Списки полей БЕЗ photo-полей (экономим 200+ МБ!)
-    const yarnFields = 'id,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,created,updated';
-    const sampleFields = 'id,name,yarn,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,yarnUsages,notes,created,updated';
+  const loadData = async () => {
+    console.log('🟡 loadData вызвана, user:', user);
+    setDataLoading(true);
+    try {
+      // Списки полей БЕЗ старых Text photo-полей, НО с новыми File-полями
+      const yarnFields = 'id,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,photoFile,created,updated';
+      const sampleFields = 'id,name,yarn,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,yarnUsages,notes,photoBeforeFile,photoAfterFile,created,updated';
 
-    const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-      loadAllRecords('yarns', '-created', yarnFields),
-      loadAllRecords('projects'),
-      loadAllRecords('samples', '-created', sampleFields),
-      loadAllRecords('patterns'),
-    ]);
+      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+        loadAllRecords('yarns', '-created', yarnFields),
+        loadAllRecords('projects'),
+        loadAllRecords('samples', '-created', sampleFields),
+        loadAllRecords('patterns'),
+      ]);
 
-      setYarns(yarnsData as any);
-      setSamples(samplesData as any);
+      // Пряжа: превращаем photoFile (имя файла) в URL
+      const parsedYarns = yarnsData.map((y: any) => ({
+        ...y,
+        photo: y.photoFile ? pb.files.getURL(y, y.photoFile, { thumb: '200x200' }) : null,
+      }));
+      setYarns(parsedYarns as any);
 
-      // 1. Проекты: БЕЗОПАСНЫЙ парсинг
+      // Образцы: превращаем photoBeforeFile и photoAfterFile в URL
+      const parsedSamples = samplesData.map((s: any) => ({
+        ...s,
+        photoBefore: s.photoBeforeFile ? pb.files.getURL(s, s.photoBeforeFile, { thumb: '200x200' }) : null,
+        photoAfter: s.photoAfterFile ? pb.files.getURL(s, s.photoAfterFile, { thumb: '200x200' }) : null,
+      }));
+      setSamples(parsedSamples as any);
+
+      // Проекты: БЕЗОПАСНЫЙ парсинг
       const parsedProjects = projectsData.map((p: any) => {
         let safeYarnUsages = [];
         if (p.yarnUsages) {
           if (typeof p.yarnUsages === 'string') {
-            try { safeYarnUsages = JSON.parse(p.yarnUsages); } 
+            try { safeYarnUsages = JSON.parse(p.yarnUsages); }
             catch (e) { safeYarnUsages = []; }
           } else if (Array.isArray(p.yarnUsages)) {
             safeYarnUsages = p.yarnUsages;
@@ -160,14 +171,13 @@ const loadData = async () => {
       });
       setProjects(parsedProjects);
 
-      // 2. Схемы: БЕЗОПАСНЫЙ парсинг
+      // Схемы: БЕЗОПАСНЫЙ парсинг
       const parsedPatterns = patternsData.map((p: any) => ({
         ...p,
         photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
         pdfs: Array.isArray(p.pdfs) ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
       }));
       setPatterns(parsedPatterns);
-
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
     } finally {
@@ -235,8 +245,49 @@ const loadData = async () => {
 
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
-      const created = await pb.collection('yarns').create(yarn);
-      setYarns([created as any, ...yarns]);
+      console.log('🟢 handleSaveYarn, yarn:', yarn);
+      // Проверяем, есть ли новое фото (base64)
+      const newPhoto = (yarn as any).photo && typeof (yarn as any).photo === 'string' && (yarn as any).photo.startsWith('data:');
+      const existingPhotoFile = (yarn as any).photoFile; // имя существующего файла
+
+      if (newPhoto) {
+        const formData = new FormData();
+        formData.append('name', yarn.name);
+        formData.append('manufacturer', yarn.manufacturer || '');
+        formData.append('article', yarn.article || '');
+        formData.append('composition', yarn.composition || '');
+        formData.append('color', yarn.color || '');
+        formData.append('totalWeight', String(yarn.totalWeight || 0));
+        formData.append('meterage', String(yarn.meterage || 0));
+        formData.append('totalMeterage', String(yarn.totalMeterage || 0));
+        formData.append('shop', yarn.shop || '');
+        formData.append('orderNumber', yarn.orderNumber || '');
+        formData.append('pricePerGram', String(yarn.pricePerGram || 0));
+        formData.append('totalPrice', String(yarn.totalPrice || 0));
+        formData.append('notes', yarn.notes || '');
+        formData.append('photoFile', base64ToFile((yarn as any).photo, `yarn_${Date.now()}.jpg`));
+
+        const created = await pb.collection('yarns').create(formData);
+        setYarns([created as any, ...yarns]);
+      } else {
+        const created = await pb.collection('yarns').create({
+          name: yarn.name,
+          manufacturer: yarn.manufacturer || '',
+          article: yarn.article || '',
+          composition: yarn.composition || '',
+          color: yarn.color || '',
+          totalWeight: yarn.totalWeight || 0,
+          meterage: yarn.meterage || 0,
+          totalMeterage: yarn.totalMeterage || 0,
+          shop: yarn.shop || '',
+          orderNumber: yarn.orderNumber || '',
+          pricePerGram: yarn.pricePerGram || 0,
+          totalPrice: yarn.totalPrice || 0,
+          notes: yarn.notes || '',
+          photoFile: existingPhotoFile || '',
+        });
+        setYarns([created as any, ...yarns]);
+      }
       setShowAddYarn(false);
     } catch (error) {
       console.error('Ошибка сохранения пряжи:', error);
@@ -247,12 +298,9 @@ const loadData = async () => {
   const handleSaveProject = async (project: Project) => {
     try {
       console.log('🟢 handleSaveProject вызвана, project:', project);
-      
       const newPhotos = project.photos.filter((p: string) => p.startsWith('data:'));
       const existingPhotos = project.photos.filter((p: string) => !p.startsWith('data:'));
-
       let createdRecord;
-      
       if (newPhotos.length > 0) {
         const formData = new FormData();
         formData.append('name', project.name);
@@ -262,12 +310,10 @@ const loadData = async () => {
         formData.append('endDate', project.endDate || '');
         formData.append('notes', project.notes || '');
         formData.append('yarnUsages', JSON.stringify(project.yarnUsages || []));
-        
         newPhotos.forEach((photo: string, index: number) => {
           const file = base64ToFile(photo, `project_photo_${index}.jpg`);
           formData.append('photos', file);
         });
-
         createdRecord = await pb.collection('projects').create(formData);
       } else {
         createdRecord = await pb.collection('projects').create({
@@ -281,14 +327,12 @@ const loadData = async () => {
           photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
         });
       }
-
       if (existingPhotos.length > 0 && newPhotos.length > 0) {
         const photoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
         await pb.collection('projects').update(createdRecord.id, {
           photos: photoFilenames,
         });
       }
-
       await loadData();
       setShowAddProject(false);
     } catch (error: any) {
@@ -299,8 +343,53 @@ const loadData = async () => {
 
   const handleSaveSample = async (sample: Sample) => {
     try {
-      const created = await pb.collection('samples').create(sample);
-      setSamples([created as any, ...samples]);
+      console.log('🟢 handleSaveSample, sample:', sample);
+      const newPhotoBefore = (sample as any).photoBefore && typeof (sample as any).photoBefore === 'string' && (sample as any).photoBefore.startsWith('data:');
+      const newPhotoAfter = (sample as any).photoAfter && typeof (sample as any).photoAfter === 'string' && (sample as any).photoAfter.startsWith('data:');
+
+      if (newPhotoBefore || newPhotoAfter) {
+        const formData = new FormData();
+        formData.append('name', sample.name);
+        formData.append('yarn', sample.yarn || '');
+        formData.append('needleSize', String(sample.needleSize || 0));
+        formData.append('stitchesWidthBefore', String((sample as any).stitchesWidthBefore || 0));
+        formData.append('rowsHeightBefore', String((sample as any).rowsHeightBefore || 0));
+        formData.append('measurementWidthBefore', String((sample as any).measurementWidthBefore || 0));
+        formData.append('measurementHeightBefore', String((sample as any).measurementHeightBefore || 0));
+        formData.append('stitchesWidthAfter', String((sample as any).stitchesWidthAfter || 0));
+        formData.append('rowsHeightAfter', String((sample as any).rowsHeightAfter || 0));
+        formData.append('measurementWidthAfter', String((sample as any).measurementWidthAfter || 0));
+        formData.append('measurementHeightAfter', String((sample as any).measurementHeightAfter || 0));
+        formData.append('yarnUsages', JSON.stringify((sample as any).yarnUsages || []));
+        formData.append('notes', (sample as any).notes || '');
+
+        if (newPhotoBefore) {
+          formData.append('photoBeforeFile', base64ToFile((sample as any).photoBefore, `sample_before_${Date.now()}.jpg`));
+        }
+        if (newPhotoAfter) {
+          formData.append('photoAfterFile', base64ToFile((sample as any).photoAfter, `sample_after_${Date.now()}.jpg`));
+        }
+
+        const created = await pb.collection('samples').create(formData);
+        setSamples([created as any, ...samples]);
+      } else {
+        const created = await pb.collection('samples').create({
+          name: sample.name,
+          yarn: sample.yarn || '',
+          needleSize: sample.needleSize || 0,
+          stitchesWidthBefore: (sample as any).stitchesWidthBefore || 0,
+          rowsHeightBefore: (sample as any).rowsHeightBefore || 0,
+          measurementWidthBefore: (sample as any).measurementWidthBefore || 0,
+          measurementHeightBefore: (sample as any).measurementHeightBefore || 0,
+          stitchesWidthAfter: (sample as any).stitchesWidthAfter || 0,
+          rowsHeightAfter: (sample as any).rowsHeightAfter || 0,
+          measurementWidthAfter: (sample as any).measurementWidthAfter || 0,
+          measurementHeightAfter: (sample as any).measurementHeightAfter || 0,
+          yarnUsages: JSON.stringify((sample as any).yarnUsages || []),
+          notes: (sample as any).notes || '',
+        });
+        setSamples([created as any, ...samples]);
+      }
       setShowAddSample(false);
     } catch (error) {
       console.error('Ошибка сохранения образца:', error);
@@ -311,29 +400,23 @@ const loadData = async () => {
   const handleSavePattern = async (pattern: Pattern) => {
     try {
       console.log('🟢 handleSavePattern вызвана, pattern:', pattern);
-      
       const newPhotos = pattern.photos.filter((p: string) => p.startsWith('data:'));
       const newPdfs = pattern.pdfs.filter((p: string) => p.startsWith('data:'));
       const existingPhotos = pattern.photos.filter((p: string) => !p.startsWith('data:'));
       const existingPdfs = pattern.pdfs.filter((p: string) => !p.startsWith('data:'));
-
       let createdRecord;
-      
       if (newPhotos.length > 0 || newPdfs.length > 0) {
         const formData = new FormData();
         formData.append('name', pattern.name);
         formData.append('link', pattern.link || '');
-        
         newPhotos.forEach((photo: string, index: number) => {
           const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
           formData.append('photos', file);
         });
-        
         newPdfs.forEach((pdf: string, index: number) => {
           const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
           formData.append('pdfs', file);
         });
-
         createdRecord = await pb.collection('patterns').create(formData);
       } else {
         createdRecord = await pb.collection('patterns').create({
@@ -343,7 +426,6 @@ const loadData = async () => {
           pdfs: existingPdfs.map((url: string) => url.split('/').pop() || url),
         });
       }
-
       if ((existingPhotos.length > 0 || existingPdfs.length > 0) && (newPhotos.length > 0 || newPdfs.length > 0)) {
         const updateData: any = {};
         if (existingPhotos.length > 0) {
@@ -354,7 +436,6 @@ const loadData = async () => {
         }
         await pb.collection('patterns').update(createdRecord.id, updateData);
       }
-
       await loadData();
       setShowAddPattern(false);
     } catch (error: any) {
@@ -367,8 +448,48 @@ const loadData = async () => {
 
   const handleUpdateYarn = async (updatedYarn: Yarn) => {
     try {
-      const updated = await pb.collection('yarns').update(updatedYarn.id, updatedYarn);
-      setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
+      console.log('🟢 handleUpdateYarn, updatedYarn:', updatedYarn);
+      const newPhoto = (updatedYarn as any).photo && typeof (updatedYarn as any).photo === 'string' && (updatedYarn as any).photo.startsWith('data:');
+      const existingPhotoFile = (updatedYarn as any).photoFile; // имя существующего файла
+
+      if (newPhoto) {
+        const formData = new FormData();
+        formData.append('name', updatedYarn.name);
+        formData.append('manufacturer', updatedYarn.manufacturer || '');
+        formData.append('article', updatedYarn.article || '');
+        formData.append('composition', updatedYarn.composition || '');
+        formData.append('color', updatedYarn.color || '');
+        formData.append('totalWeight', String(updatedYarn.totalWeight || 0));
+        formData.append('meterage', String(updatedYarn.meterage || 0));
+        formData.append('totalMeterage', String(updatedYarn.totalMeterage || 0));
+        formData.append('shop', updatedYarn.shop || '');
+        formData.append('orderNumber', updatedYarn.orderNumber || '');
+        formData.append('pricePerGram', String(updatedYarn.pricePerGram || 0));
+        formData.append('totalPrice', String(updatedYarn.totalPrice || 0));
+        formData.append('notes', updatedYarn.notes || '');
+        formData.append('photoFile', base64ToFile((updatedYarn as any).photo, `yarn_${updatedYarn.id}.jpg`));
+
+        const updated = await pb.collection('yarns').update(updatedYarn.id, formData);
+        setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
+      } else {
+        const updated = await pb.collection('yarns').update(updatedYarn.id, {
+          name: updatedYarn.name,
+          manufacturer: updatedYarn.manufacturer || '',
+          article: updatedYarn.article || '',
+          composition: updatedYarn.composition || '',
+          color: updatedYarn.color || '',
+          totalWeight: updatedYarn.totalWeight || 0,
+          meterage: updatedYarn.meterage || 0,
+          totalMeterage: updatedYarn.totalMeterage || 0,
+          shop: updatedYarn.shop || '',
+          orderNumber: updatedYarn.orderNumber || '',
+          pricePerGram: updatedYarn.pricePerGram || 0,
+          totalPrice: updatedYarn.totalPrice || 0,
+          notes: updatedYarn.notes || '',
+          photoFile: existingPhotoFile || '',
+        });
+        setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
+      }
       setEditingYarn(null);
     } catch (error) {
       console.error('Ошибка обновления пряжи:', error);
@@ -378,8 +499,57 @@ const loadData = async () => {
 
   const handleUpdateSample = async (updatedSample: Sample) => {
     try {
-      await pb.collection('samples').update(updatedSample.id, updatedSample);
-      setSamples(samples.map(s => s.id === updatedSample.id ? updatedSample : s));
+      console.log('🟢 handleUpdateSample, updatedSample:', updatedSample);
+      const newPhotoBefore = (updatedSample as any).photoBefore && typeof (updatedSample as any).photoBefore === 'string' && (updatedSample as any).photoBefore.startsWith('data:');
+      const newPhotoAfter = (updatedSample as any).photoAfter && typeof (updatedSample as any).photoAfter === 'string' && (updatedSample as any).photoAfter.startsWith('data:');
+      const existingPhotoBeforeFile = (updatedSample as any).photoBeforeFile;
+      const existingPhotoAfterFile = (updatedSample as any).photoAfterFile;
+
+      if (newPhotoBefore || newPhotoAfter) {
+        const formData = new FormData();
+        formData.append('name', updatedSample.name);
+        formData.append('yarn', updatedSample.yarn || '');
+        formData.append('needleSize', String(updatedSample.needleSize || 0));
+        formData.append('stitchesWidthBefore', String((updatedSample as any).stitchesWidthBefore || 0));
+        formData.append('rowsHeightBefore', String((updatedSample as any).rowsHeightBefore || 0));
+        formData.append('measurementWidthBefore', String((updatedSample as any).measurementWidthBefore || 0));
+        formData.append('measurementHeightBefore', String((updatedSample as any).measurementHeightBefore || 0));
+        formData.append('stitchesWidthAfter', String((updatedSample as any).stitchesWidthAfter || 0));
+        formData.append('rowsHeightAfter', String((updatedSample as any).rowsHeightAfter || 0));
+        formData.append('measurementWidthAfter', String((updatedSample as any).measurementWidthAfter || 0));
+        formData.append('measurementHeightAfter', String((updatedSample as any).measurementHeightAfter || 0));
+        formData.append('yarnUsages', JSON.stringify((updatedSample as any).yarnUsages || []));
+        formData.append('notes', (updatedSample as any).notes || '');
+
+        if (newPhotoBefore) {
+          formData.append('photoBeforeFile', base64ToFile((updatedSample as any).photoBefore, `sample_${updatedSample.id}_before.jpg`));
+        }
+        if (newPhotoAfter) {
+          formData.append('photoAfterFile', base64ToFile((updatedSample as any).photoAfter, `sample_${updatedSample.id}_after.jpg`));
+        }
+
+        const updated = await pb.collection('samples').update(updatedSample.id, formData);
+        setSamples(samples.map(s => s.id === updatedSample.id ? updated as any : s));
+      } else {
+        const updated = await pb.collection('samples').update(updatedSample.id, {
+          name: updatedSample.name,
+          yarn: updatedSample.yarn || '',
+          needleSize: updatedSample.needleSize || 0,
+          stitchesWidthBefore: (updatedSample as any).stitchesWidthBefore || 0,
+          rowsHeightBefore: (updatedSample as any).rowsHeightBefore || 0,
+          measurementWidthBefore: (updatedSample as any).measurementWidthBefore || 0,
+          measurementHeightBefore: (updatedSample as any).measurementHeightBefore || 0,
+          stitchesWidthAfter: (updatedSample as any).stitchesWidthAfter || 0,
+          rowsHeightAfter: (updatedSample as any).rowsHeightAfter || 0,
+          measurementWidthAfter: (updatedSample as any).measurementWidthAfter || 0,
+          measurementHeightAfter: (updatedSample as any).measurementHeightAfter || 0,
+          yarnUsages: JSON.stringify((updatedSample as any).yarnUsages || []),
+          notes: (updatedSample as any).notes || '',
+          photoBeforeFile: existingPhotoBeforeFile || '',
+          photoAfterFile: existingPhotoAfterFile || '',
+        });
+        setSamples(samples.map(s => s.id === updatedSample.id ? updated as any : s));
+      }
       setEditingSample(null);
     } catch (error) {
       console.error('Ошибка обновления образца:', error);
@@ -390,32 +560,24 @@ const loadData = async () => {
   const handleUpdateProject = async (updatedProject: Project) => {
     try {
       console.log('🟢 handleUpdateProject вызвана, updatedProject:', updatedProject);
-      
       const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
       const existingPhotos = updatedProject.photos.filter((p: string) => !p.startsWith('data:'));
-      
       let allPhotoFilenames: string[] = [];
-      
       if (newPhotos.length > 0) {
         const formData = new FormData();
         newPhotos.forEach((photo: string, index: number) => {
           const file = base64ToFile(photo, `project_photo_${index}.jpg`);
           formData.append('photos', file);
         });
-        
         const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
         console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
-        
         if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
           allPhotoFilenames = [...uploadResponse.photos];
         }
       }
-      
       const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
       allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
-      
       console.log('🟢 Итоговый список файлов:', allPhotoFilenames);
-      
       await pb.collection('projects').update(updatedProject.id, {
         name: updatedProject.name,
         stage: updatedProject.stage,
@@ -426,7 +588,6 @@ const loadData = async () => {
         yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
         photos: allPhotoFilenames,
       });
-      
       await loadData();
       setEditingProject(null);
     } catch (error: any) {
@@ -438,15 +599,12 @@ const loadData = async () => {
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
     try {
       console.log('🟢 handleUpdatePattern вызвана, updatedPattern:', updatedPattern);
-      
       const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
       const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
       const existingPhotos = updatedPattern.photos.filter((p: string) => !p.startsWith('data:'));
       const existingPdfs = updatedPattern.pdfs.filter((p: string) => !p.startsWith('data:'));
-      
       let allPhotoFilenames: string[] = [];
       let allPdfFilenames: string[] = [];
-      
       if (newPhotos.length > 0 || newPdfs.length > 0) {
         const formData = new FormData();
         newPhotos.forEach((photo: string, index: number) => {
@@ -455,10 +613,8 @@ const loadData = async () => {
         newPdfs.forEach((pdf: string, index: number) => {
           formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
         });
-        
         const uploadResponse = await pb.collection('patterns').update(updatedPattern.id, formData);
         console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
-        
         if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
           allPhotoFilenames = [...uploadResponse.photos];
         }
@@ -466,22 +622,18 @@ const loadData = async () => {
           allPdfFilenames = [...uploadResponse.pdfs];
         }
       }
-      
       const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
       const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
       allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
       allPdfFilenames = [...allPdfFilenames, ...existingPdfFilenames];
-      
       console.log('🟢 Итоговый список фото:', allPhotoFilenames);
       console.log('🟢 Итоговый список PDF:', allPdfFilenames);
-      
       await pb.collection('patterns').update(updatedPattern.id, {
         name: updatedPattern.name,
         link: updatedPattern.link || '',
         photos: allPhotoFilenames,
         pdfs: allPdfFilenames,
       });
-      
       await loadData();
       setEditingPattern(null);
     } catch (error: any) {
@@ -565,7 +717,9 @@ const loadData = async () => {
               <span className="flex-1 text-left">{section.label}</span>
               {getCount(section.id) !== null && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  activeSection === section.id ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  activeSection === section.id
+                    ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}>
                   {getCount(section.id)}
                 </span>
@@ -635,7 +789,9 @@ const loadData = async () => {
               <span className="flex-1 text-left">{section.label}</span>
               {getCount(section.id) !== null && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  activeSection === section.id ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  activeSection === section.id
+                    ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}>
                   {getCount(section.id)}
                 </span>
@@ -798,14 +954,13 @@ const loadData = async () => {
       <EditYarnForm isOpen={!!editingYarn} onClose={() => setEditingYarn(null)} onSave={handleUpdateYarn} yarn={editingYarn} />
       <EditSampleForm isOpen={!!editingSample} onClose={() => setEditingSample(null)} onSave={handleUpdateSample} yarns={yarns} sample={editingSample} />
       <EditPatternForm isOpen={!!editingPattern} onClose={() => setEditingPattern(null)} onSave={handleUpdatePattern} pattern={editingPattern} />
-      <EditProjectForm 
-        isOpen={!!editingProject} 
-        onClose={() => setEditingProject(null)} 
-        onSave={handleUpdateProject} 
-        yarns={yarns} 
+      <EditProjectForm
+        isOpen={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        onSave={handleUpdateProject}
+        yarns={yarns}
         project={editingProject}
       />
-    
     </div>
   );
 }
