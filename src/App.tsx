@@ -24,64 +24,106 @@ console.log('🔵 APP.TSX ЗАГРУЖЕН');
 // Вспомогательный предикат
 const isDataUrl = (v: any): v is string => typeof v === 'string' && v.startsWith('data:');
 
-// Кэш имён полей схем коллекций (берётся с сервера один раз на коллекцию).
-// Нужен, чтобы не отправлять PocketBase поля, которых нет в схеме —
-// на неизвестное поле сервер отвечает 400 "Field ... is not defined".
-const schemaFieldsCache = new Map<string, Set<string>>();
-const getSchemaFields = async (col: string): Promise<Set<string> | null> => {
-  if (schemaFieldsCache.has(col)) return schemaFieldsCache.get(col)!;
+// Полные имена полей схем коллекций (берутся с сервера один раз на коллекцию
+// через /api/collections/{name}). Нужны, чтобы:
+//  1) не отправлять PocketBase поля, которых нет в схеме (иначе 400
+//     "Field ... is not defined");
+//  2) различать строковые и ФАЙЛОВЫЕ поля (для файловых SDK должен получить
+//     настоящий File/FileList, а не JSON-строку).
+type ColSchema = { names: Set<string>; types: Map<string, string> };
+const schemaCache = new Map<string, ColSchema>();
+const getCollectionSchema = async (col: string): Promise<ColSchema | null> => {
+  if (schemaCache.has(col)) return schemaCache.get(col)!;
   try {
-    const meta = await pb.collection(col).getList(1, 1, { requestKey: null });
-    const items = meta.items as any[];
-    if (items.length === 0) return null; // коллекция пуста — поля узнать нельзя
-    const fields = new Set<string>(Object.keys(items[0].toJson()));
-    schemaFieldsCache.set(col, fields);
-    return fields;
+    const res = await fetch(`${pb.baseURL}/api/collections/${col}`, {
+      headers: { Authorization: (pb as any).authStore?.token || '' },
+    });
+    if (!res.ok) return null;
+    const json: any = await res.json();
+    const fields: any[] = json?.fields || [];
+    const names = new Set<string>();
+    const types = new Map<string, string>();
+    for (const f of fields) {
+      if (f?.type === 'autobind' || f?.type === 'relation') continue;
+      const n = f?.name;
+      if (typeof n === 'string' && n && !names.has(n)) {
+        names.add(n);
+        types.set(n, String(f?.type || ''));
+      }
+    }
+    const schema = { names, types };
+    schemaCache.set(col, schema);
+    return schema;
   } catch (e) {
-    return null; // не удалось получить метаданные — будем осторожны
+    return null; // не удалось получить схему — будем осторожны
   }
 };
 
-// Кэш уже загруженных файлов (по имени): одинаковый файл не грузится дважды
-const uploadedFilesCache = new Map<string, string>();
+// Пустая запись-«болванка» для определения имён полей в записи
+const EMPTY_RECORD_JSON = JSON.stringify({});
 
-// Загружает ОДИН File в PocketBase как настоящий файл и возвращает его URL.
-// Механизм идентичен разделам projects/patterns (где всё работает отлично):
-// создаётся служебная запись с файлом в существующем файловом поле коллекции
-// (поле гарантированно есть в схеме — проверяем по метаданным), забираем URL
-// файла и удаляем служебную запись. Один небольшой multipart-запрос, без
-// base64-текста в JSON и без требования создавать новые коллекции.
+// Извлекает из ответа PocketBase имя(названия) загруженного(ых) файла(ов)
+const getFileNames = (rec: any, field: string): string[] => {
+  const raw = rec?.get ? rec.get(field) : rec?.[field];
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter(Boolean).map(String);
+  return [String(raw)];
+};
+
+// Загружает ОДИН File в PocketBase как настоящий файл и возвращает его ПОЛНЫЙ
+// URL. Быстрый путь: создаём пустую запись (без файлов) и сразу обновляем её
+// multipart-запросом с файлом в нужном файловом поле — ровно так же, как это
+// всегда работало в projects/patterns. Затем URL забирается через
+// pb.files.getURL и временная запись удаляется. Никакого base64.
 const uploadFileToPocketbase = async (file: File, collection: string, field: string): Promise<string> => {
-  const cacheKey = `${collection}:${field}:${file.name}:${file.size}`;
-  const cached = uploadedFilesCache.get(cacheKey);
-  if (cached) return cached;
-  const knownFields = await getSchemaFields(collection);
-  if (knownFields && !knownFields.has(field)) {
+  const schema = await getCollectionSchema(collection);
+  if (schema && !schema.names.has(field)) {
     throw new Error(
-      `В коллекции "${collection}" нет файлового поля "${field}". ` +
+      `В коллекции "${collection}" нет поля "${field}". ` +
       `Добавьте его в админ-панели PocketBase (тип File).`
     );
   }
-  const fd = new FormData();
-  fd.append(field, file);
-  const rec: any = await pb.collection(collection).create(fd, { requestKey: null });
-  const url = pb.files.getURL(rec, rec.get(field));
-  try { await pb.collection(collection).delete(rec.id, { requestKey: null }); } catch (_) { /* не критично */ }
-  uploadedFilesCache.set(cacheKey, url);
-  return url;
+  const col = pb.collection(collection);
+  const rec: any = await col.create(JSON.parse(EMPTY_RECORD_JSON), { requestKey: null });
+  let updated: any;
+  try {
+    const fd = new FormData();
+    fd.append(field, file);
+    updated = await col.update(rec.id, fd, { requestKey: null });
+  } catch (e) {
+    try { await col.delete(rec.id, { requestKey: null }); } catch (_) { /* не критично */ }
+    throw e;
+  }
+  const names = getFileNames(updated, field);
+  try { await col.delete(rec.id, { requestKey: null }); } catch (_) { /* не критично */ }
+  if (names.length === 0) throw new Error('PocketBase не вернул имя загруженного файла');
+  return pb.files.getURL(updated, names[0]);
 };
 
-// Превращает значение фото в URL: File -> быстрая загрузка; data-URL -> Blob ->
-// загрузка; обычный URL -> возвращается как есть.
-const resolvePhotoValue = async (value: any, collection: string, field: string): Promise<string> => {
-  if (!value) return '';
-  if (value instanceof File) return uploadFileToPocketbase(value, collection, field);
-  if (isDataUrl(value)) {
-    const blob = await fetch(value).then((r) => r.blob());
-    const file = new File([blob], `${field}_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
-    return uploadFileToPocketbase(file, collection, field);
+// Превращает выбранные формы в значения для ФАЙЛОВЫХ полей maxSelect>1
+// (photos в projects, photos/pdfs в patterns): настоящие File остаются File
+// (SDK отправит их multipart-ом, как всегда работало в projects/patterns),
+// data-URL конвертируется в Blob->File, уже загруженные URL/имя файлов
+// сохраняются как строки (PocketBase при update принимает смесь имён и файлов).
+const buildFieldValue = async (
+  items: any[],
+  collection: string,
+  field: string
+): Promise<Array<File | string>> => {
+  const out: Array<File | string> = [];
+  for (let i = 0; i < items.length; i++) {
+    const v = items[i];
+    if (!v) continue;
+    if (v instanceof File) {
+      out.push(v);
+    } else if (typeof v === 'string' && isDataUrl(v)) {
+      const blob = await fetch(v).then((r) => r.blob());
+      out.push(new File([blob], `${field}_${Date.now()}_${i}.jpg`, { type: blob.type || 'image/jpeg' }));
+    } else if (typeof v === 'string') {
+      out.push(v); // уже URL или имя файла — оставим как есть
+    }
   }
-  return value; // уже URL
+  return out;
 };
 
 const sections: { id: Section; label: string; icon: string }[] = [
@@ -142,18 +184,18 @@ function App() {
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
   // Функция для постраничной загрузки
-const loadAllRecords = async (collection: string, sort: string = '-created') => {
-  let allRecords: any[] = [];
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const res = await pb.collection(collection).getList(page, 100, { sort });
-    allRecords = [...allRecords, ...res.items];
-    totalPages = res.totalPages;
-    page++;
-  } while (page <= totalPages);
-  return allRecords;
-};
+  const loadAllRecords = async (collection: string, sort: string = '-created') => {
+    let allRecords: any[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const res = await pb.collection(collection).getList(page, 100, { sort });
+      allRecords = [...allRecords, ...res.items];
+      totalPages = res.totalPages;
+      page++;
+    } while (page <= totalPages);
+    return allRecords;
+  };
 
   // Загрузка данных из PocketBase
   const mountedRef = useRef(true);
@@ -299,67 +341,119 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
   // === ФУНКЦИИ СОХРАНЕНИЯ ===
 
   // Строит данные для отправки в PocketBase.
-  // photoFields: [текстовое поле, файловое поле] для каждого фото-поля карточки.
+  // photoFields: [файловое поле, ...] для каждого фото карточки (в коллекциях
+  // yarns/samples это настоящие файловые поля PocketBase: photoFile,
+  // photoBeforeFile, photoAfterFile).
   // Логика:
-  //  - если форма передала НАСТОЯЩИЙ File (photoFile/photoBeforeFile/...) —
-  //    он загружается в файловое поле одним быстрым multipart-запросом, а в
-  //    текстовое поле пишется короткий URL результата;
-  //  - если там только data-URL (fallback) — конвертируем в Blob и грузим так же;
-  //  - если это URL (картинка из интернета или уже загруженный файл) — просто
-  //    сохраняем строку;
-  //  - в/files-массивы (photos/pdfs) по возможности кладём сами File-объекты —
-  //    SDK отправит их как multipart (как в проектах/схемах, где всё работает);
-  //  - служебные *Files-массивы из форм не отправляем, если поля нет в схеме.
+  //  - если форма передала НАСТОЯЩИЙ File — он кладётся прямо в data и SDK
+  //    отправит его multipart-запросом вместе с записью (быстрый путь, ровно
+  //    как всегда работал в projects/patterns);
+  //  - если там только data-URL (fallback) — конвертируем в Blob->File;
+  //  - если это обычный URL (картинка из интернета) — загружаем его на сервер
+  //    отдельным быстрым запросом и кладём имя файла;
+  //  - при РЕДАКТИРОВАНИИ уже загруженные файлы передаём их ИМЕНАМИ (PocketBase
+  //    по имени сохранит существующий файл, не удаляя его);
+  //  - photos/pdfs (maxSelect>1) — смесь имён/URL старых файлов и новых File;
+  //  - поля, которых нет в схеме коллекции, не отправляем вовсе (иначе 400).
   const buildRecordData = async (
     obj: any,
-    photoFields: Array<[string, string?]>,
-    collection: string
+    photoFields: string[],
+    collection: string,
+    isUpdate = false
   ): Promise<any> => {
-    const knownFields = await getSchemaFields(collection);
-    const has = (f: string) => !knownFields || knownFields.has(f);
+    const schema = await getCollectionSchema(collection);
+    const has = (f: string) => !schema || schema.names.has(f);
+    const isFileType = (f: string) => schema?.types.get(f) === 'file';
 
     const toJsonString = (v: any) => JSON.stringify(v ?? null);
 
-    // 1) Одиночные фото-поля: File/data-URL -> короткий URL в текстовое поле,
-    //    обычный URL -> сохраняется как есть.
+    // Извлекает ИМЯ файла из полного URL PocketBase (или оставляет имя как есть)
+    const toFileName = (v: string): string => {
+      const m = v.match(/\/api\/files\/[^/]+\/[^/]+\/[^/?#]+/);
+      if (m) return m[0].split('/').pop()!;
+      return v.split('/').pop()?.split('?')[0] || v;
+    };
+
+    // Загружает data-URL / внешний URL на сервер, возвращает ИМЯ файла
+    const uploadToFieldName = async (raw: string, field: string): Promise<string> => {
+      let file: File;
+      if (isDataUrl(raw)) {
+        const blob = await fetch(raw).then((r) => r.blob());
+        file = new File([blob], `${field}_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+      } else {
+        const res = await fetch(raw);
+        const blob = await res.blob();
+        file = new File([blob], `${field}_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+      }
+      const url = await uploadFileToPocketbase(file, collection, field);
+      return toFileName(url);
+    };
+
     const data: any = {};
 
-    for (const [textKey, fileKeyOpt] of photoFields) {
-      const raw = obj[textKey];
-      const incomingFile: File | null =
-        fileKeyOpt && obj[fileKeyOpt] instanceof File ? obj[fileKeyOpt] : null;
-
-      let textValue = '';
-      if (incomingFile) {
-        textValue = await uploadFileToPocketbase(incomingFile, collection, fileKeyOpt!);
-      } else if (isDataUrl(raw)) {
-        textValue = await resolvePhotoValue(raw, collection, fileKeyOpt!);
-      } else if (typeof raw === 'string') {
-        textValue = raw.startsWith('data:') ? '' : raw;
+    // 1) Одиночные фото-поля (файловые поля коллекций yarns/samples)
+    for (const key of photoFields) {
+      if (!has(key) || !isFileType(key)) continue;
+      const raw = obj[key];
+      if (raw instanceof File) {
+        data[key] = raw; // быстрый multipart-путь
+      } else if (typeof raw === 'string' && raw) {
+        if (isUpdate) {
+          data[key] = toFileName(raw); // сохранить уже загруженный файл
+        } else if (isDataUrl(raw) || /^https?:\/\//.test(raw)) {
+          data[key] = await uploadToFieldName(raw, key);
+        }
       }
-
-      if (has(textKey)) data[textKey] = textValue;
     }
 
     // 2) Остальные поля
     for (const key of Object.keys(obj)) {
       if (key === 'id' || key === 'created' || key === 'updated') continue;
-      if (photoFields.some(([t, f]) => key === t || (f && key === f))) continue;
+      if (photoFields.includes(key)) continue;
       if (/File[s]?$/.test(key)) continue; // служебные поля форм (*Files)
-      if (knownFields && !knownFields.has(key)) continue;
+      if (!has(key)) continue;
       let value = obj[key];
-      if (Array.isArray(value) && (key === 'photos' || key === 'pdfs')) {
-        // Массивы файлов: подставляем настоящие File туда, где они были выбраны,
-        // и URL/строки — где пришли значениями. PocketBase SDK сам соберёт multipart.
+      if (isFileType(key) && Array.isArray(value)) {
+        // Файловые поля с maxSelect>1 (photos в projects, photos/pdfs в
+        // patterns): подставляем настоящие File туда, где они были выбраны в
+        // форме, data-URL/внешние URL грузим на сервер, старые файлы при
+        // update передаём именами — всё одним multipart-записевым запросом.
         const filesArr: any[] = obj[`${key}Files`] || [];
         const merged = value.map((v: any, i: number) => {
           const f = filesArr[i];
-          if (f instanceof File) return f;
-          if (isDataUrl(v)) return v; // старый путь: base64 останется строкой в Text-поле
-          return v;
-        }).filter(Boolean);
-        // Если файловое поле принимает файлы — отдаём SDK File-объекты
-        value = merged;
+          return f instanceof File ? f : v;
+        });
+        const out: Array<File | string> = [];
+        for (let i = 0; i < merged.length; i++) {
+          const v = merged[i];
+          if (!v) continue;
+          if (v instanceof File) {
+            out.push(v);
+          } else if (typeof v === 'string' && v) {
+            if (isDataUrl(v) || /^https?:\/\//.test(v)) {
+              out.push(await uploadToFieldName(v, key));
+            } else if (isUpdate) {
+              out.push(toFileName(v)); // имя уже загруженного файла
+            } else {
+              out.push(v);
+            }
+          }
+        }
+        value = out;
+      } else if (isFileType(key) && typeof value === 'string') {
+        // одиночное файловое поле вне photoFields
+        if (!value) {
+          value = '';
+        } else if (isUpdate) {
+          value = toFileName(value);
+        } else if (isDataUrl(value) || /^https?:\/\//.test(value)) {
+          value = await uploadToFieldName(value, key);
+        } else {
+          continue; // непонятная строка — не отправляем в файловое поле
+        }
+      } else if (Array.isArray(value) && (key === 'photos' || key === 'pdfs')) {
+        // совместимость: если поле вдруг строковое — сериализуем в JSON
+        value = toJsonString(value);
       } else if (typeof value === 'object' && value !== null && !(value instanceof File)) {
         value = toJsonString(value);
       }
@@ -373,7 +467,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     try {
       console.log('🟢 handleSaveYarn');
       await pb.collection('yarns').create(
-        await buildRecordData({ ...yarn }, [['photo', 'photoFile']], 'yarns'),
+        await buildRecordData({ ...yarn, photoFile: yarn.photoFile ?? yarn.photo }, ['photoFile'], 'yarns'),
         { requestKey: null }
       );
       await loadData();
@@ -388,7 +482,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     try {
       console.log('🟢 handleSaveProject вызвана');
       await pb.collection('projects').create(
-        await buildRecordData({ ...project }, [], 'projects'),
+        await buildRecordData(project as any, [], 'projects'),
         { requestKey: null }
       );
       await loadData();
@@ -403,7 +497,15 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     try {
       console.log('🟢 handleSaveSample');
       await pb.collection('samples').create(
-        await buildRecordData(sample, [['photoBefore', 'photoBeforeFile'], ['photoAfter', 'photoAfterFile']], 'samples'),
+        await buildRecordData(
+          {
+            ...sample,
+            photoBeforeFile: sample.photoBeforeFile ?? sample.photoBefore,
+            photoAfterFile: sample.photoAfterFile ?? sample.photoAfter,
+          },
+          ['photoBeforeFile', 'photoAfterFile'],
+          'samples'
+        ),
         { requestKey: null }
       );
       await loadData();
@@ -418,7 +520,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     try {
       console.log('🟢 handleSavePattern вызвана');
       await pb.collection('patterns').create(
-        await buildRecordData({ ...pattern }, [], 'patterns'),
+        await buildRecordData(pattern as any, [], 'patterns'),
         { requestKey: null }
       );
       await loadData();
@@ -436,7 +538,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       console.log('🟢 handleUpdateYarn');
       await pb.collection('yarns').update(
         updatedYarn.id,
-        await buildRecordData({ ...updatedYarn }, [['photo', 'photoFile']], 'yarns'),
+        await buildRecordData({ ...updatedYarn, photoFile: updatedYarn.photoFile ?? updatedYarn.photo }, ['photoFile'], 'yarns', true),
         { requestKey: null }
       );
       await loadData();
@@ -452,7 +554,16 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       console.log('🟢 handleUpdateSample');
       await pb.collection('samples').update(
         updatedSample.id,
-        await buildRecordData(updatedSample, [['photoBefore', 'photoBeforeFile'], ['photoAfter', 'photoAfterFile']], 'samples'),
+        await buildRecordData(
+          {
+            ...updatedSample,
+            photoBeforeFile: updatedSample.photoBeforeFile ?? updatedSample.photoBefore,
+            photoAfterFile: updatedSample.photoAfterFile ?? updatedSample.photoAfter,
+          },
+          ['photoBeforeFile', 'photoAfterFile'],
+          'samples',
+          true
+        ),
         { requestKey: null }
       );
       await loadData();
@@ -468,7 +579,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       console.log('🟢 handleUpdateProject вызвана');
       await pb.collection('projects').update(
         updatedProject.id,
-        await buildRecordData({ ...updatedProject }, [], 'projects'),
+        await buildRecordData(updatedProject as any, [], 'projects', true),
         { requestKey: null }
       );
       await loadData();
@@ -484,7 +595,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       console.log('🟢 handleUpdatePattern вызвана');
       await pb.collection('patterns').update(
         updatedPattern.id,
-        await buildRecordData({ ...updatedPattern }, [], 'patterns'),
+        await buildRecordData(updatedPattern as any, [], 'patterns', true),
         { requestKey: null }
       );
       await loadData();
@@ -534,7 +645,7 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     if (!confirm('Удалить схему? Это действие нельзя отменить.')) return;
     try {
       await pb.collection('patterns').delete(id);
-      setPatterns(patterns.filter(p => p.id !== id));
+      setPatterns(patterns.filter(p => p.id !== p.id));
     } catch (error: any) {
       console.error('Ошибка удаления схемы:', error);
       alert(error.message || 'Не удалось удалить схему');
