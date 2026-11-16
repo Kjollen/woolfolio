@@ -21,18 +21,10 @@ import { exportToJSON, exportYarnsToCSV, exportProjectsToCSV } from './utils/exp
 import pb from './lib/pocketbase';
 console.log('🔵 APP.TSX ЗАГРУЖЕН');
 
-// Превращает Base64 строку в File объект
-const base64ToFile = (base64: string, filename: string): File => {
-  const arr = base64.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : (filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new File([u8arr], filename, { type: mime });
+// Превращает Base64 строку в File объект (быстрый вариант через fetch/Blob)
+const base64ToFile = async (base64: string, filename: string): Promise<File> => {
+  const blob = await fetch(base64).then((r) => r.blob());
+  return new File([blob], filename, { type: blob.type || 'image/jpeg' });
 };
 
 // Извлекает имя файла из URL PocketBase
@@ -40,6 +32,35 @@ const extractFilename = (url: string): string => {
   if (!url) return '';
   const parts = url.split('/');
   return parts[parts.length - 1] || url;
+};
+
+// Вспомогательные предикаты
+const isDataUrl = (v: any): v is string => typeof v === 'string' && v.startsWith('data:');
+const isUploadedFileUrl = (v: any): v is string =>
+  typeof v === 'string' && v.includes('/api/files/');
+
+// Загружает одно фото (base64 data-URL или обычный URL) в PocketBase как ФАЙЛ
+// и возвращает URL загруженного файла. Отправляется один небольшой
+// multipart-запрос с самим файлом — без base64-текста в полях записи.
+const uploadPhotoValue = async (value: string, prefix: string, collection: string): Promise<string> => {
+  if (!value) return '';
+  if (!isDataUrl(value)) return value; // уже URL — ничего не делаем
+  const isPdf = value.startsWith('data:application/pdf');
+  const file = await base64ToFile(value, `${prefix}_${Date.now()}${isPdf ? '.pdf' : '.jpg'}`);
+  const formData = new FormData();
+  formData.append('file', file);
+  const record = await pb.collection(collection).create(formData, { requestKey: null });
+  return pb.files.getURL(record, record.file);
+};
+
+// Последовательная загрузка нескольких значений (по одному файлу за запрос),
+// чтобы не «вешать» сервер параллельными тяжёлыми аплоадами.
+const uploadPhotoValues = async (values: string[], prefix: string, collection: string): Promise<string[]> => {
+  const result: string[] = [];
+  for (let i = 0; i < values.length; i++) {
+    result.push(await uploadPhotoValue(values[i], `${prefix}_${i}`, collection));
+  }
+  return result;
 };
 
 const sections: { id: Section; label: string; icon: string }[] = [
@@ -114,41 +135,63 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
 };
 
   // Загрузка данных из PocketBase
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   useEffect(() => {
     if (user) {
       loadData();
     }
   }, [user]);
 
+  // Чистим «висящие» незавершённые запросы (например, после зависаний)
+  useEffect(() => {
+    try {
+      pb.cancelRequestsWithPattern?.('*');
+    } catch (e) { /* noop */ }
+  }, []);
+
+  // Безопасный парсинг массива URL/файлов из поля PocketBase
+  const parseFilesField = (value: any): string[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return safeParseArray(value).filter(Boolean);
+  };
+
   const loadData = async () => {
     console.log('🟡 loadData вызвана, user:', user);
     setDataLoading(true);
     try {
-      // Списки полей БЕЗ старых Text photo-полей, НО с новыми File-полями
-      const yarnFields = 'id,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,photoFile,created,updated';
-      const sampleFields = 'id,name,yarn,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,yarnUsages,notes,photoBeforeFile,photoAfterFile,created,updated';
+      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+        loadAllRecords('yarns', '-created'),
+        loadAllRecords('projects'),
+        loadAllRecords('samples', '-created'),
+        loadAllRecords('patterns'),
+      ]);
 
-const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-  loadAllRecords('yarns', '-created'),
-  loadAllRecords('projects'),
-  loadAllRecords('samples', '-created'),
-  loadAllRecords('patterns'),
-]);
+      // Пряжа: фото — миниатюра файла photoFile либо URL из текстового поля photo
+      const parsedYarns = yarnsData.map((y: any) => ({
+        ...y,
+        photo: y.photoFile
+          ? pb.files.getURL(y, y.photoFile, { thumb: '400x0' })
+          : (typeof y.photo === 'string' && y.photo ? y.photo : ''),
+      }));
+      if (mountedRef.current) setYarns(parsedYarns as any);
 
-// Пряжа: превью из photoFile
-const parsedYarns = yarnsData.map((y: any) => ({
-  ...y,
-  photo: y.photoFile ? pb.files.getURL(y, y.photoFile, { thumb: '200x200' }) : null,
-}));
-setYarns(parsedYarns as any);
-
-// Образцы: превью из photoBeforeFile и photoAfterFile
-const parsedSamples = samplesData.map((s: any) => ({
-  ...s,
-  photoBefore: s.photoBeforeFile ? pb.files.getURL(s, s.photoBeforeFile, { thumb: '200x200' }) : null,
-  photoAfter: s.photoAfterFile ? pb.files.getURL(s, s.photoAfterFile, { thumb: '200x200' }) : null,
-}));
-setSamples(parsedSamples as any);
+      // Образцы: превью из файловых полей либо из текстовых photoBefore/photoAfter
+      const parsedSamples = samplesData.map((s: any) => ({
+        ...s,
+        photoBefore: s.photoBeforeFile
+          ? pb.files.getURL(s, s.photoBeforeFile, { thumb: '400x0' })
+          : (typeof s.photoBefore === 'string' && s.photoBefore ? s.photoBefore : ''),
+        photoAfter: s.photoAfterFile
+          ? pb.files.getURL(s, s.photoAfterFile, { thumb: '400x0' })
+          : (typeof s.photoAfter === 'string' && s.photoAfter ? s.photoAfter : ''),
+      }));
+      if (mountedRef.current) setSamples(parsedSamples as any);
 
       // Проекты: БЕЗОПАСНЫЙ парсинг
       const parsedProjects = projectsData.map((p: any) => {
@@ -163,23 +206,23 @@ setSamples(parsedSamples as any);
         }
         return {
           ...p,
-          photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+          photos: parseFilesField(p.photos),
           yarnUsages: safeYarnUsages,
         };
       });
-      setProjects(parsedProjects);
+      if (mountedRef.current) setProjects(parsedProjects);
 
       // Схемы: БЕЗОПАСНЫЙ парсинг
       const parsedPatterns = patternsData.map((p: any) => ({
         ...p,
-        photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-        pdfs: Array.isArray(p.pdfs) ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
+        photos: parseFilesField(p.photos),
+        pdfs: parseFilesField(p.pdfs),
       }));
-      setPatterns(parsedPatterns);
+      if (mountedRef.current) setPatterns(parsedPatterns);
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
     } finally {
-      setDataLoading(false);
+      if (mountedRef.current) setDataLoading(false);
     }
   };
 
@@ -241,51 +284,62 @@ setSamples(parsedSamples as any);
 
   // === ФУНКЦИИ СОХРАНЕНИЯ ===
 
+  // Строит данные для отправки в PocketBase: фото-значения, пришедшие из
+  // загрузчика как base64, сначала отправляются на сервер ОТДЕЛЬНЫМИ маленькими
+  // запросами (по одному файлу), и в запись попадают только короткие URL.
+  // Так создание/обновление карточки остаётся быстрым и не «вешает» сервер.
+  const buildRecordData = async (obj: any, photoFields: string[], collection: string): Promise<any> => {
+    // Сначала загружаем все новые файлы (base64) — по одному за запрос
+    const uploadedUrls = new Map<string, string>(); // dataURL -> URL файла в PocketBase
+    const collectValues: string[] = [];
+    for (const field of photoFields) {
+      const value = obj[field];
+      if (Array.isArray(value)) collectValues.push(...value);
+      else if (typeof value === 'string') collectValues.push(value);
+    }
+    for (const v of collectValues) {
+      if (isDataUrl(v) && !uploadedUrls.has(v)) {
+        const url = await uploadPhotoValue(v, collection, collection);
+        uploadedUrls.set(v, url);
+      }
+    }
+
+    const toJsonString = (v: any) => JSON.stringify(v ?? null);
+
+    const data: any = {};
+    for (const key of Object.keys(obj)) {
+      if (key === 'id' || key === 'created' || key === 'updated') continue;
+      let value = obj[key];
+      if (photoFields.includes(key)) {
+        if (Array.isArray(value)) {
+          // Массивы фото (photos/pdfs) сохраняем как JSON-строку со списком URL
+          value = toJsonString(
+            value.map((v: string) => (isDataUrl(v) ? uploadedUrls.get(v) || '' : v)).filter(Boolean)
+          );
+        } else if (isUploadedFileUrl(value)) {
+          // Уже загруженный файл PocketBase: поле Text хранит полный URL — оставляем как есть
+        } else if (isDataUrl(value)) {
+          value = uploadedUrls.get(value) || '';
+        } else if (typeof value === 'string' && value.startsWith('data:')) {
+          value = '';
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        // Объекты/массивы (yarnUsages) PocketBase в текстовых полях хранит строками
+        value = toJsonString(value);
+      }
+      data[key] = value;
+    }
+    return data;
+  };
+
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
-      console.log('🟢 handleSaveYarn, yarn:', yarn);
-      // Проверяем, есть ли новое фото (base64)
-      const newPhoto = (yarn as any).photo && typeof (yarn as any).photo === 'string' && (yarn as any).photo.startsWith('data:');
-      const existingPhotoFile = (yarn as any).photoFile; // имя существующего файла
-
-      if (newPhoto) {
-        const formData = new FormData();
-        formData.append('name', yarn.name);
-        formData.append('manufacturer', yarn.manufacturer || '');
-        formData.append('article', yarn.article || '');
-        formData.append('composition', yarn.composition || '');
-        formData.append('color', yarn.color || '');
-        formData.append('totalWeight', String(yarn.totalWeight || 0));
-        formData.append('meterage', String(yarn.meterage || 0));
-        formData.append('totalMeterage', String(yarn.totalMeterage || 0));
-        formData.append('shop', yarn.shop || '');
-        formData.append('orderNumber', yarn.orderNumber || '');
-        formData.append('pricePerGram', String(yarn.pricePerGram || 0));
-        formData.append('totalPrice', String(yarn.totalPrice || 0));
-        formData.append('notes', yarn.notes || '');
-        formData.append('photoFile', base64ToFile((yarn as any).photo, `yarn_${Date.now()}.jpg`));
-
-        const created = await pb.collection('yarns').create(formData);
-        setYarns([created as any, ...yarns]);
-      } else {
-        const created = await pb.collection('yarns').create({
-          name: yarn.name,
-          manufacturer: yarn.manufacturer || '',
-          article: yarn.article || '',
-          composition: yarn.composition || '',
-          color: yarn.color || '',
-          totalWeight: yarn.totalWeight || 0,
-          meterage: yarn.meterage || 0,
-          totalMeterage: yarn.totalMeterage || 0,
-          shop: yarn.shop || '',
-          orderNumber: yarn.orderNumber || '',
-          pricePerGram: yarn.pricePerGram || 0,
-          totalPrice: yarn.totalPrice || 0,
-          notes: yarn.notes || '',
-          photoFile: existingPhotoFile || '',
-        });
-        setYarns([created as any, ...yarns]);
-      }
+      console.log('🟢 handleSaveYarn');
+      const created = await pb.collection('yarns').create(
+        await buildRecordData({ ...yarn, photoFile: '' }, ['photo'], 'yarns'),
+        { requestKey: null }
+      );
+      await loadData();
       setShowAddYarn(false);
     } catch (error) {
       console.error('Ошибка сохранения пряжи:', error);
@@ -295,42 +349,11 @@ setSamples(parsedSamples as any);
 
   const handleSaveProject = async (project: Project) => {
     try {
-      console.log('🟢 handleSaveProject вызвана, project:', project);
-      const newPhotos = project.photos.filter((p: string) => p.startsWith('data:'));
-      const existingPhotos = project.photos.filter((p: string) => !p.startsWith('data:'));
-      let createdRecord;
-      if (newPhotos.length > 0) {
-        const formData = new FormData();
-        formData.append('name', project.name);
-        formData.append('stage', project.stage);
-        formData.append('needleSize', String(project.needleSize || 0));
-        formData.append('startDate', project.startDate || '');
-        formData.append('endDate', project.endDate || '');
-        formData.append('notes', project.notes || '');
-        formData.append('yarnUsages', JSON.stringify(project.yarnUsages || []));
-        newPhotos.forEach((photo: string, index: number) => {
-          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-          formData.append('photos', file);
-        });
-        createdRecord = await pb.collection('projects').create(formData);
-      } else {
-        createdRecord = await pb.collection('projects').create({
-          name: project.name,
-          stage: project.stage,
-          needleSize: project.needleSize,
-          startDate: project.startDate,
-          endDate: project.endDate,
-          notes: project.notes,
-          yarnUsages: JSON.stringify(project.yarnUsages || []),
-          photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
-        });
-      }
-      if (existingPhotos.length > 0 && newPhotos.length > 0) {
-        const photoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
-        await pb.collection('projects').update(createdRecord.id, {
-          photos: photoFilenames,
-        });
-      }
+      console.log('🟢 handleSaveProject вызвана');
+      await pb.collection('projects').create(
+        await buildRecordData({ ...project }, ['photos'], 'projects'),
+        { requestKey: null }
+      );
       await loadData();
       setShowAddProject(false);
     } catch (error: any) {
@@ -341,53 +364,16 @@ setSamples(parsedSamples as any);
 
   const handleSaveSample = async (sample: Sample) => {
     try {
-      console.log('🟢 handleSaveSample, sample:', sample);
-      const newPhotoBefore = (sample as any).photoBefore && typeof (sample as any).photoBefore === 'string' && (sample as any).photoBefore.startsWith('data:');
-      const newPhotoAfter = (sample as any).photoAfter && typeof (sample as any).photoAfter === 'string' && (sample as any).photoAfter.startsWith('data:');
-
-      if (newPhotoBefore || newPhotoAfter) {
-        const formData = new FormData();
-        formData.append('name', sample.name);
-        formData.append('yarn', sample.yarn || '');
-        formData.append('needleSize', String(sample.needleSize || 0));
-        formData.append('stitchesWidthBefore', String((sample as any).stitchesWidthBefore || 0));
-        formData.append('rowsHeightBefore', String((sample as any).rowsHeightBefore || 0));
-        formData.append('measurementWidthBefore', String((sample as any).measurementWidthBefore || 0));
-        formData.append('measurementHeightBefore', String((sample as any).measurementHeightBefore || 0));
-        formData.append('stitchesWidthAfter', String((sample as any).stitchesWidthAfter || 0));
-        formData.append('rowsHeightAfter', String((sample as any).rowsHeightAfter || 0));
-        formData.append('measurementWidthAfter', String((sample as any).measurementWidthAfter || 0));
-        formData.append('measurementHeightAfter', String((sample as any).measurementHeightAfter || 0));
-        formData.append('yarnUsages', JSON.stringify((sample as any).yarnUsages || []));
-        formData.append('notes', (sample as any).notes || '');
-
-        if (newPhotoBefore) {
-          formData.append('photoBeforeFile', base64ToFile((sample as any).photoBefore, `sample_before_${Date.now()}.jpg`));
-        }
-        if (newPhotoAfter) {
-          formData.append('photoAfterFile', base64ToFile((sample as any).photoAfter, `sample_after_${Date.now()}.jpg`));
-        }
-
-        const created = await pb.collection('samples').create(formData);
-        setSamples([created as any, ...samples]);
-      } else {
-        const created = await pb.collection('samples').create({
-          name: sample.name,
-          yarn: sample.yarn || '',
-          needleSize: sample.needleSize || 0,
-          stitchesWidthBefore: (sample as any).stitchesWidthBefore || 0,
-          rowsHeightBefore: (sample as any).rowsHeightBefore || 0,
-          measurementWidthBefore: (sample as any).measurementWidthBefore || 0,
-          measurementHeightBefore: (sample as any).measurementHeightBefore || 0,
-          stitchesWidthAfter: (sample as any).stitchesWidthAfter || 0,
-          rowsHeightAfter: (sample as any).rowsHeightAfter || 0,
-          measurementWidthAfter: (sample as any).measurementWidthAfter || 0,
-          measurementHeightAfter: (sample as any).measurementHeightAfter || 0,
-          yarnUsages: JSON.stringify((sample as any).yarnUsages || []),
-          notes: (sample as any).notes || '',
-        });
-        setSamples([created as any, ...samples]);
-      }
+      console.log('🟢 handleSaveSample');
+      await pb.collection('samples').create(
+        await buildRecordData(
+          { ...sample, photoBeforeFile: '', photoAfterFile: '' },
+          ['photoBefore', 'photoAfter'],
+          'samples'
+        ),
+        { requestKey: null }
+      );
+      await loadData();
       setShowAddSample(false);
     } catch (error) {
       console.error('Ошибка сохранения образца:', error);
@@ -397,43 +383,11 @@ setSamples(parsedSamples as any);
 
   const handleSavePattern = async (pattern: Pattern) => {
     try {
-      console.log('🟢 handleSavePattern вызвана, pattern:', pattern);
-      const newPhotos = pattern.photos.filter((p: string) => p.startsWith('data:'));
-      const newPdfs = pattern.pdfs.filter((p: string) => p.startsWith('data:'));
-      const existingPhotos = pattern.photos.filter((p: string) => !p.startsWith('data:'));
-      const existingPdfs = pattern.pdfs.filter((p: string) => !p.startsWith('data:'));
-      let createdRecord;
-      if (newPhotos.length > 0 || newPdfs.length > 0) {
-        const formData = new FormData();
-        formData.append('name', pattern.name);
-        formData.append('link', pattern.link || '');
-        newPhotos.forEach((photo: string, index: number) => {
-          const file = base64ToFile(photo, `pattern_photo_${index}.jpg`);
-          formData.append('photos', file);
-        });
-        newPdfs.forEach((pdf: string, index: number) => {
-          const file = base64ToFile(pdf, `pattern_doc_${index}.pdf`);
-          formData.append('pdfs', file);
-        });
-        createdRecord = await pb.collection('patterns').create(formData);
-      } else {
-        createdRecord = await pb.collection('patterns').create({
-          name: pattern.name,
-          link: pattern.link || '',
-          photos: existingPhotos.map((url: string) => url.split('/').pop() || url),
-          pdfs: existingPdfs.map((url: string) => url.split('/').pop() || url),
-        });
-      }
-      if ((existingPhotos.length > 0 || existingPdfs.length > 0) && (newPhotos.length > 0 || newPdfs.length > 0)) {
-        const updateData: any = {};
-        if (existingPhotos.length > 0) {
-          updateData.photos = existingPhotos.map((url: string) => url.split('/').pop() || url);
-        }
-        if (existingPdfs.length > 0) {
-          updateData.pdfs = existingPdfs.map((url: string) => url.split('/').pop() || url);
-        }
-        await pb.collection('patterns').update(createdRecord.id, updateData);
-      }
+      console.log('🟢 handleSavePattern вызвана');
+      await pb.collection('patterns').create(
+        await buildRecordData({ ...pattern }, ['photos', 'pdfs'], 'patterns'),
+        { requestKey: null }
+      );
       await loadData();
       setShowAddPattern(false);
     } catch (error: any) {
@@ -446,48 +400,13 @@ setSamples(parsedSamples as any);
 
   const handleUpdateYarn = async (updatedYarn: Yarn) => {
     try {
-      console.log('🟢 handleUpdateYarn, updatedYarn:', updatedYarn);
-      const newPhoto = (updatedYarn as any).photo && typeof (updatedYarn as any).photo === 'string' && (updatedYarn as any).photo.startsWith('data:');
-      const existingPhotoFile = (updatedYarn as any).photoFile; // имя существующего файла
-
-      if (newPhoto) {
-        const formData = new FormData();
-        formData.append('name', updatedYarn.name);
-        formData.append('manufacturer', updatedYarn.manufacturer || '');
-        formData.append('article', updatedYarn.article || '');
-        formData.append('composition', updatedYarn.composition || '');
-        formData.append('color', updatedYarn.color || '');
-        formData.append('totalWeight', String(updatedYarn.totalWeight || 0));
-        formData.append('meterage', String(updatedYarn.meterage || 0));
-        formData.append('totalMeterage', String(updatedYarn.totalMeterage || 0));
-        formData.append('shop', updatedYarn.shop || '');
-        formData.append('orderNumber', updatedYarn.orderNumber || '');
-        formData.append('pricePerGram', String(updatedYarn.pricePerGram || 0));
-        formData.append('totalPrice', String(updatedYarn.totalPrice || 0));
-        formData.append('notes', updatedYarn.notes || '');
-        formData.append('photoFile', base64ToFile((updatedYarn as any).photo, `yarn_${updatedYarn.id}.jpg`));
-
-        const updated = await pb.collection('yarns').update(updatedYarn.id, formData);
-        setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
-      } else {
-        const updated = await pb.collection('yarns').update(updatedYarn.id, {
-          name: updatedYarn.name,
-          manufacturer: updatedYarn.manufacturer || '',
-          article: updatedYarn.article || '',
-          composition: updatedYarn.composition || '',
-          color: updatedYarn.color || '',
-          totalWeight: updatedYarn.totalWeight || 0,
-          meterage: updatedYarn.meterage || 0,
-          totalMeterage: updatedYarn.totalMeterage || 0,
-          shop: updatedYarn.shop || '',
-          orderNumber: updatedYarn.orderNumber || '',
-          pricePerGram: updatedYarn.pricePerGram || 0,
-          totalPrice: updatedYarn.totalPrice || 0,
-          notes: updatedYarn.notes || '',
-          photoFile: existingPhotoFile || '',
-        });
-        setYarns(yarns.map(y => y.id === updated.id ? updated as any : y));
-      }
+      console.log('🟢 handleUpdateYarn');
+      await pb.collection('yarns').update(
+        updatedYarn.id,
+        await buildRecordData({ ...updatedYarn, photoFile: '' }, ['photo'], 'yarns'),
+        { requestKey: null }
+      );
+      await loadData();
       setEditingYarn(null);
     } catch (error) {
       console.error('Ошибка обновления пряжи:', error);
@@ -497,57 +416,17 @@ setSamples(parsedSamples as any);
 
   const handleUpdateSample = async (updatedSample: Sample) => {
     try {
-      console.log('🟢 handleUpdateSample, updatedSample:', updatedSample);
-      const newPhotoBefore = (updatedSample as any).photoBefore && typeof (updatedSample as any).photoBefore === 'string' && (updatedSample as any).photoBefore.startsWith('data:');
-      const newPhotoAfter = (updatedSample as any).photoAfter && typeof (updatedSample as any).photoAfter === 'string' && (updatedSample as any).photoAfter.startsWith('data:');
-      const existingPhotoBeforeFile = (updatedSample as any).photoBeforeFile;
-      const existingPhotoAfterFile = (updatedSample as any).photoAfterFile;
-
-      if (newPhotoBefore || newPhotoAfter) {
-        const formData = new FormData();
-        formData.append('name', updatedSample.name);
-        formData.append('yarn', updatedSample.yarn || '');
-        formData.append('needleSize', String(updatedSample.needleSize || 0));
-        formData.append('stitchesWidthBefore', String((updatedSample as any).stitchesWidthBefore || 0));
-        formData.append('rowsHeightBefore', String((updatedSample as any).rowsHeightBefore || 0));
-        formData.append('measurementWidthBefore', String((updatedSample as any).measurementWidthBefore || 0));
-        formData.append('measurementHeightBefore', String((updatedSample as any).measurementHeightBefore || 0));
-        formData.append('stitchesWidthAfter', String((updatedSample as any).stitchesWidthAfter || 0));
-        formData.append('rowsHeightAfter', String((updatedSample as any).rowsHeightAfter || 0));
-        formData.append('measurementWidthAfter', String((updatedSample as any).measurementWidthAfter || 0));
-        formData.append('measurementHeightAfter', String((updatedSample as any).measurementHeightAfter || 0));
-        formData.append('yarnUsages', JSON.stringify((updatedSample as any).yarnUsages || []));
-        formData.append('notes', (updatedSample as any).notes || '');
-
-        if (newPhotoBefore) {
-          formData.append('photoBeforeFile', base64ToFile((updatedSample as any).photoBefore, `sample_${updatedSample.id}_before.jpg`));
-        }
-        if (newPhotoAfter) {
-          formData.append('photoAfterFile', base64ToFile((updatedSample as any).photoAfter, `sample_${updatedSample.id}_after.jpg`));
-        }
-
-        const updated = await pb.collection('samples').update(updatedSample.id, formData);
-        setSamples(samples.map(s => s.id === updatedSample.id ? updated as any : s));
-      } else {
-        const updated = await pb.collection('samples').update(updatedSample.id, {
-          name: updatedSample.name,
-          yarn: updatedSample.yarn || '',
-          needleSize: updatedSample.needleSize || 0,
-          stitchesWidthBefore: (updatedSample as any).stitchesWidthBefore || 0,
-          rowsHeightBefore: (updatedSample as any).rowsHeightBefore || 0,
-          measurementWidthBefore: (updatedSample as any).measurementWidthBefore || 0,
-          measurementHeightBefore: (updatedSample as any).measurementHeightBefore || 0,
-          stitchesWidthAfter: (updatedSample as any).stitchesWidthAfter || 0,
-          rowsHeightAfter: (updatedSample as any).rowsHeightAfter || 0,
-          measurementWidthAfter: (updatedSample as any).measurementWidthAfter || 0,
-          measurementHeightAfter: (updatedSample as any).measurementHeightAfter || 0,
-          yarnUsages: JSON.stringify((updatedSample as any).yarnUsages || []),
-          notes: (updatedSample as any).notes || '',
-          photoBeforeFile: existingPhotoBeforeFile || '',
-          photoAfterFile: existingPhotoAfterFile || '',
-        });
-        setSamples(samples.map(s => s.id === updatedSample.id ? updated as any : s));
-      }
+      console.log('🟢 handleUpdateSample');
+      await pb.collection('samples').update(
+        updatedSample.id,
+        await buildRecordData(
+          { ...updatedSample, photoBeforeFile: '', photoAfterFile: '' },
+          ['photoBefore', 'photoAfter'],
+          'samples'
+        ),
+        { requestKey: null }
+      );
+      await loadData();
       setEditingSample(null);
     } catch (error) {
       console.error('Ошибка обновления образца:', error);
@@ -557,35 +436,12 @@ setSamples(parsedSamples as any);
 
   const handleUpdateProject = async (updatedProject: Project) => {
     try {
-      console.log('🟢 handleUpdateProject вызвана, updatedProject:', updatedProject);
-      const newPhotos = updatedProject.photos.filter((p: string) => p.startsWith('data:'));
-      const existingPhotos = updatedProject.photos.filter((p: string) => !p.startsWith('data:'));
-      let allPhotoFilenames: string[] = [];
-      if (newPhotos.length > 0) {
-        const formData = new FormData();
-        newPhotos.forEach((photo: string, index: number) => {
-          const file = base64ToFile(photo, `project_photo_${index}.jpg`);
-          formData.append('photos', file);
-        });
-        const uploadResponse = await pb.collection('projects').update(updatedProject.id, formData);
-        console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
-        if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
-          allPhotoFilenames = [...uploadResponse.photos];
-        }
-      }
-      const existingFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
-      allPhotoFilenames = [...allPhotoFilenames, ...existingFilenames];
-      console.log('🟢 Итоговый список файлов:', allPhotoFilenames);
-      await pb.collection('projects').update(updatedProject.id, {
-        name: updatedProject.name,
-        stage: updatedProject.stage,
-        needleSize: updatedProject.needleSize,
-        startDate: updatedProject.startDate,
-        endDate: updatedProject.endDate,
-        notes: updatedProject.notes,
-        yarnUsages: JSON.stringify(updatedProject.yarnUsages || []),
-        photos: allPhotoFilenames,
-      });
+      console.log('🟢 handleUpdateProject вызвана');
+      await pb.collection('projects').update(
+        updatedProject.id,
+        await buildRecordData({ ...updatedProject }, ['photos'], 'projects'),
+        { requestKey: null }
+      );
       await loadData();
       setEditingProject(null);
     } catch (error: any) {
@@ -596,42 +452,12 @@ setSamples(parsedSamples as any);
 
   const handleUpdatePattern = async (updatedPattern: Pattern) => {
     try {
-      console.log('🟢 handleUpdatePattern вызвана, updatedPattern:', updatedPattern);
-      const newPhotos = updatedPattern.photos.filter((p: string) => p.startsWith('data:'));
-      const newPdfs = updatedPattern.pdfs.filter((p: string) => p.startsWith('data:'));
-      const existingPhotos = updatedPattern.photos.filter((p: string) => !p.startsWith('data:'));
-      const existingPdfs = updatedPattern.pdfs.filter((p: string) => !p.startsWith('data:'));
-      let allPhotoFilenames: string[] = [];
-      let allPdfFilenames: string[] = [];
-      if (newPhotos.length > 0 || newPdfs.length > 0) {
-        const formData = new FormData();
-        newPhotos.forEach((photo: string, index: number) => {
-          formData.append('photos', base64ToFile(photo, `pattern_photo_${index}.jpg`));
-        });
-        newPdfs.forEach((pdf: string, index: number) => {
-          formData.append('pdfs', base64ToFile(pdf, `pattern_doc_${index}.pdf`));
-        });
-        const uploadResponse = await pb.collection('patterns').update(updatedPattern.id, formData);
-        console.log('🟢 Ответ после загрузки файлов:', uploadResponse);
-        if (uploadResponse.photos && Array.isArray(uploadResponse.photos)) {
-          allPhotoFilenames = [...uploadResponse.photos];
-        }
-        if (uploadResponse.pdfs && Array.isArray(uploadResponse.pdfs)) {
-          allPdfFilenames = [...uploadResponse.pdfs];
-        }
-      }
-      const existingPhotoFilenames = existingPhotos.map((url: string) => url.split('/').pop() || url);
-      const existingPdfFilenames = existingPdfs.map((url: string) => url.split('/').pop() || url);
-      allPhotoFilenames = [...allPhotoFilenames, ...existingPhotoFilenames];
-      allPdfFilenames = [...allPdfFilenames, ...existingPdfFilenames];
-      console.log('🟢 Итоговый список фото:', allPhotoFilenames);
-      console.log('🟢 Итоговый список PDF:', allPdfFilenames);
-      await pb.collection('patterns').update(updatedPattern.id, {
-        name: updatedPattern.name,
-        link: updatedPattern.link || '',
-        photos: allPhotoFilenames,
-        pdfs: allPdfFilenames,
-      });
+      console.log('🟢 handleUpdatePattern вызвана');
+      await pb.collection('patterns').update(
+        updatedPattern.id,
+        await buildRecordData({ ...updatedPattern }, ['photos', 'pdfs'], 'patterns'),
+        { requestKey: null }
+      );
       await loadData();
       setEditingPattern(null);
     } catch (error: any) {
