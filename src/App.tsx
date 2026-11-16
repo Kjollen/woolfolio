@@ -100,20 +100,18 @@ function App() {
   const { swipeOffset, swipeHandlers } = useSwipeToOpen(() => setMobileMenuOpen(true));
 
   // Функция для постраничной загрузки
-  const loadAllRecords = async (collection: string, sort: string = '-created', fields?: string) => {
-    let allRecords: any[] = [];
-    let page = 1;
-    let totalPages = 1;
-    do {
-      const options: any = { sort };
-      if (fields) options.fields = fields;
-      const res = await pb.collection(collection).getList(page, 100, options);
-      allRecords = [...allRecords, ...res.items];
-      totalPages = res.totalPages;
-      page++;
-    } while (page <= totalPages);
-    return allRecords;
-  };
+const loadAllRecords = async (collection: string, sort: string = '-created') => {
+  let allRecords: any[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const res = await pb.collection(collection).getList(page, 100, { sort });
+    allRecords = [...allRecords, ...res.items];
+    totalPages = res.totalPages;
+    page++;
+  } while (page <= totalPages);
+  return allRecords;
+};
 
   // Загрузка данных из PocketBase
   useEffect(() => {
@@ -130,12 +128,12 @@ function App() {
       const yarnFields = 'id,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,photoFile,created,updated';
       const sampleFields = 'id,name,yarn,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,yarnUsages,notes,photoBeforeFile,photoAfterFile,created,updated';
 
-      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-        loadAllRecords('yarns', '-created', yarnFields),
-        loadAllRecords('projects'),
-        loadAllRecords('samples', '-created', sampleFields),
-        loadAllRecords('patterns'),
-      ]);
+const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+  loadAllRecords('yarns', '-created'),
+  loadAllRecords('projects'),
+  loadAllRecords('samples', '-created'),
+  loadAllRecords('patterns'),
+]);
 
       // Пряжа: превращаем photoFile (имя файла) в URL
       const parsedYarns = yarnsData.map((y: any) => ({
