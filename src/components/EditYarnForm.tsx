@@ -30,7 +30,7 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
   useEffect(() => {
     if (yarn) {
       setFormData({
-        photo: yarn.photo,
+        photo: yarn.photo || '',
         name: yarn.name,
         manufacturer: yarn.manufacturer,
         article: yarn.article,
@@ -62,9 +62,7 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!yarn) return;
-
     const updatedYarn: Yarn = {
       ...yarn,
       photo: formData.photo,
@@ -81,7 +79,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
       pricePerGram: Number(formData.pricePerGram) || 0,
       totalPrice: Number(formData.totalPrice) || 0,
     };
-    
     onSave(updatedYarn);
     onClose();
   };
@@ -90,7 +87,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-5">
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Редактировать пряжу</h2>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Фото */}
           <FileUploader
@@ -100,7 +96,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
             label="Фото пряжи"
             placeholder="Вставьте URL или загрузите фото"
           />
-
           {/* Название и производитель */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -129,7 +124,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
               />
             </div>
           </div>
-
           {/* Артикул и состав */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -157,7 +151,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
               />
             </div>
           </div>
-
           {/* Цвет */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -171,7 +164,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
             />
           </div>
-
           {/* Вес и метраж */}
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -210,13 +202,11 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
               </div>
             </div>
           </div>
-
           {/* Покупка */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               <i className="fas fa-shopping-bag mr-1 text-emerald-500"></i> Информация о покупке
             </h3>
-            
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -272,7 +262,6 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
               </div>
             </div>
           </div>
-
           {/* Кнопки */}
           <div className="flex gap-2 pt-4">
             <button
