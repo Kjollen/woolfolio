@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import MultiFileUploader from './MultiFileUploader';
@@ -21,8 +21,6 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
   });
   
   const [photos, setPhotos] = useState<string[]>([]);
-  // Настоящие выбранные файлы (позиции соответствуют photos)
-  const photoFilesRef = useRef<(File | null)[]>([]);
 
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
@@ -46,24 +44,23 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  const newProject = {
-    // Убираем id
-    photos,
-    photosFiles: photoFilesRef.current,
-    name: formData.name,
-    stage: formData.stage,
-    yarnUsages,
-    needleSize: Number(formData.needleSize) || 0,
-    startDate: formData.startDate,
-    endDate: formData.endDate,
-    notes: formData.notes,
+    e.preventDefault();
+    
+    const newProject: Project = {
+      id: `p_${Date.now()}`,
+      photos,
+      name: formData.name,
+      stage: formData.stage,
+      yarnUsages,
+      needleSize: Number(formData.needleSize) || 0,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      notes: formData.notes,
+    };
+    
+    onSave(newProject);
+    onClose();
   };
-  
-  onSave(newProject as any);
-  onClose();
-};
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -217,7 +214,6 @@ const AddProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => 
           <MultiFileUploader
             values={photos}
             onChange={setPhotos}
-            onFilesSelected={(fs) => { photoFilesRef.current = fs; }}
             accept="image/*"
             label="Фото проекта"
             placeholder="Вставьте URL или загрузите фото"
