@@ -103,7 +103,7 @@ function App() {
     console.log('🟡 loadData вызвана, user:', user);
     setDataLoading(true);
     try {
-      // Списки полей — ВКЛЮЧАЕМ фото-поля (они теперь File, не base64 — памяти не едят)
+      // ✅ ВАЖНО: добавлены photo-поля в списки!
       const yarnFields = 'id,photo,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,created,updated';
       const sampleFields = 'id,photoBefore,photoAfter,yarnUsages,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,created,updated';
 
