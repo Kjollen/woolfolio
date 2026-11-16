@@ -1,17 +1,36 @@
 import React, { useRef, useState } from 'react';
+import { compressImageToDataUrl } from '../utils/image';
 
 interface Props {
   values: string[];
   onChange: (values: string[]) => void;
+  /** Необязательный колбэк: отдаёт наружу НАСТОЯЩИЕ выбранные файлы
+   * (позиции соответствуют значениям в values; для URL-строк там null).
+   * Родитель может загрузить их в PocketBase напрямую как File, минуя
+   * медленную и «вешающую» UI конвертацию base64 → Blob. */
+  onFilesSelected?: (files: (File | null)[]) => void;
   accept?: string;
   label?: string;
   placeholder?: string;
   maxFiles?: number;
 }
 
+const isImageValue = (value: string) =>
+  value.startsWith('data:image') || /\/files\//.test(value) || /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(value);
+const isPdfValue = (value: string) =>
+  value.startsWith('data:application/pdf') || (/\.pdf(\?|$)/i.test(value) && !value.startsWith('data:image'));
+
+/**
+ * Множественный загрузчик файлов.
+ * Как и одиночный FileUploader: настоящие файлы отдаются наружу через
+ * onFilesChange (индексом соответствующим values), а в values лежат только
+ * компактные превью data-URL или URL уже загруженных файлов. Это убирает
+ * зависания при выборе больших фото.
+ */
 const MultiFileUploader: React.FC<Props> = ({
   values,
   onChange,
+  onFilesSelected,
   accept = 'image/*,.pdf,application/pdf',
   label = 'Файлы',
   placeholder = 'Вставьте URL или загрузите файлы',
@@ -19,21 +38,57 @@ const MultiFileUploader: React.FC<Props> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  // Файлы, соответствующие значениям в values (позиции совпадают).
+  // Хранятся в ref — не вызывают ререндеров и не сериализуются в DOM.
+  const filesRef = useRef<(File | null)[]>([]);
+
+  // Обновляем значения и синхронно отдаём наружу массив файлов
+  const updateBoth = (nextValues: string[], nextFiles: (File | null)[]) => {
+    filesRef.current = nextFiles;
+    onFilesSelected?.(nextFiles);
+    onChange(nextValues);
+  };
+
+  const handleIncomingFiles = async (files: File[]) => {
+    const room = maxFiles - values.length;
+    const toProcess = files.slice(0, Math.max(0, room));
+    if (toProcess.length === 0) return;
+    setIsProcessing(true);
+    try {
+      const newValues: string[] = [];
+      const newFiles: (File | null)[] = [];
+      for (const f of toProcess) {
+        newFiles.push(f);
+        if (f.type.startsWith('image/')) {
+          // Превью — сжатый маленький data-URL; оригинал файла пойдёт на сервер целиком
+          try {
+            newValues.push(await compressImageToDataUrl(f));
+          } catch {
+            newValues.push('');
+          }
+        } else {
+          newValues.push(f.name);
+        }
+      }
+      updateBoth([...values, ...newValues], [...filesRef.current, ...newFiles]);
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('pdf') !== -1) {
-        const blob = items[i].getAsFile();
-        if (blob && values.length < maxFiles) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              onChange([...values, event.target.result as string]);
-            }
-          };
-          reader.readAsDataURL(blob);
+        const blob = items[i].getAsFile() as Blob | null;
+        if (blob) {
+          e.preventDefault();
+          const f = blob instanceof File ? blob : new File([blob], 'pasted.jpg', { type: blob.type });
+          await handleIncomingFiles([f]);
+          return;
         }
       }
     }
@@ -41,25 +96,8 @@ const MultiFileUploader: React.FC<Props> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const filesToProcess = Array.from(files).slice(0, maxFiles - values.length);
-      const newFiles: string[] = [];
-      let processedCount = 0;
-      
-      filesToProcess.forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            newFiles.push(event.target.result as string);
-          }
-          processedCount++;
-          
-          if (processedCount === filesToProcess.length) {
-            onChange([...values, ...newFiles]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+    if (files && files.length > 0) {
+      handleIncomingFiles(Array.from(files));
     }
   };
 
@@ -68,79 +106,61 @@ const MultiFileUploader: React.FC<Props> = ({
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const handleDragLeave = () => setIsDragging(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
     const files = e.dataTransfer.files;
-    if (files) {
-      const filesToProcess = Array.from(files).slice(0, maxFiles - values.length);
-      const newFiles: string[] = [];
-      let processedCount = 0;
-      
-      filesToProcess.forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            newFiles.push(event.target.result as string);
-          }
-          processedCount++;
-          
-          if (processedCount === filesToProcess.length) {
-            onChange([...values, ...newFiles]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+    if (files && files.length > 0) {
+      handleIncomingFiles(Array.from(files));
     }
   };
 
   const handleAddUrl = () => {
-    if (urlInput.trim() && values.length < maxFiles) {
-      onChange([...values, urlInput.trim()]);
+    const trimmed = urlInput.trim();
+    if (trimmed && values.length < maxFiles) {
+      // URL — файла нет, ставим null на новую позицию
+      updateBoth([...values, trimmed], [...filesRef.current, null]);
       setUrlInput('');
     }
   };
 
   const handleRemove = (index: number) => {
-    onChange(values.filter((_, i) => i !== index));
+    updateBoth(
+      values.filter((_, i) => i !== index),
+      filesRef.current.filter((_, i) => i !== index)
+    );
   };
-
-  const isImage = (value: string) => value.startsWith('data:image') || value.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-  const isPdf = (value: string) => value.startsWith('data:application/pdf') || value.match(/\.pdf$/i);
 
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label} {values.length > 0 && <span className="text-xs text-gray-500">({values.length}/{maxFiles})</span>}
       </label>
-      
+
       {/* Превью файлов */}
       {values.length > 0 && (
         <div className="grid grid-cols-3 gap-2 mb-3">
           {values.map((value, index) => (
             <div key={index} className="relative group">
-              {isImage(value) && (
+              {isImageValue(value) && (
                 <img
                   src={value}
                   alt={`Файл ${index + 1}`}
                   className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                 />
               )}
-              {isPdf(value) && (
+              {isPdfValue(value) && (
                 <div className="w-full h-24 flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/20 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
                   <i className="fas fa-file-pdf text-3xl text-red-500 mb-1"></i>
                   <span className="text-xs text-gray-600 dark:text-gray-400 truncate w-full text-center">PDF</span>
                 </div>
               )}
-              {!isImage(value) && !isPdf(value) && (
+              {!isImageValue(value) && !isPdfValue(value) && (
                 <div className="w-full h-24 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-                  <i className="fas fa-file text-3xl text-gray-400 mb-1"></i>
-                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate w-full text-center">Файл</span>
+                  <i className="fas fa-link text-3xl text-gray-400 mb-1"></i>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate w-full text-center">{value}</span>
                 </div>
               )}
               <button
@@ -187,11 +207,15 @@ const MultiFileUploader: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={values.length >= maxFiles}
+            disabled={values.length >= maxFiles || isProcessing}
             className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <i className="fas fa-upload text-xs"></i>
-            <span>Загрузить файлы</span>
+            {isProcessing ? (
+              <i className="fas fa-spinner fa-spin text-xs"></i>
+            ) : (
+              <i className="fas fa-upload text-xs"></i>
+            )}
+            <span>{isProcessing ? 'Обработка…' : 'Загрузить файлы'}</span>
           </button>
           <button
             type="button"
