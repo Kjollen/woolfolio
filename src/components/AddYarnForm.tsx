@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Yarn } from '../types';
 import Modal from './Modal';
 import FileUploader from './FileUploader';
@@ -26,9 +26,14 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
     notes: '',
   });
 
+  // Настоящий выбранный файл фото (хранится в ref — не вызывает ререндеров
+  // и не раздувает состояние формы огромной base64-строкой)
+  const photoFileRef = useRef<File | null>(null);
+
   // Сброс формы при каждом открытии
   useEffect(() => {
     if (isOpen) {
+      photoFileRef.current = null;
       setFormData({
         photo: '',
         name: '',
@@ -63,6 +68,9 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newYarn = {
+      // photoFile — настоящий файл: App загрузит его в PocketBase как ФАЙЛ
+      // одним быстрым multipart-запросом. photo — превью/URL для отображения.
+      photoFile: photoFileRef.current || undefined,
       photo: formData.photo || 'https://images.unsplash.com/photo-1582719508461-905c6737f1fd?w=300&h=300&fit=crop',
       name: formData.name,
       manufacturer: formData.manufacturer,
@@ -90,6 +98,7 @@ const AddYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
           <FileUploader
             value={formData.photo}
             onChange={(value) => setFormData({ ...formData, photo: value })}
+            onFileChange={(file) => { photoFileRef.current = file; }}
             accept="image/*"
             label="Фото пряжи"
             placeholder="Вставьте URL или загрузите фото"
