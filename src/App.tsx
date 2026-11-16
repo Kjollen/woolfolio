@@ -113,6 +113,7 @@ function App() {
         loadAllRecords('samples', '-created', sampleFields),
         loadAllRecords('patterns'),
       ]);
+      console.log('🟢 samplesData:', samplesData);
 
       // 1. Пряжа: фото через getURL
       const parsedYarns = yarnsData.map((y: any) => ({
