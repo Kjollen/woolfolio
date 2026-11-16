@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Yarn } from '../types';
 import Modal from './Modal';
 import FileUploader from './FileUploader';
@@ -27,8 +27,12 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
     notes: '',
   });
 
+  // Новый выбранный файл (если пользователь меняет фото)
+  const photoFileRef = useRef<File | null>(null);
+
   useEffect(() => {
     if (yarn) {
+      photoFileRef.current = null;
       setFormData({
         photo: yarn.photo,
         name: yarn.name,
@@ -65,6 +69,8 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
     if (!yarn) return;
     const updatedYarn: Yarn = {
       ...yarn,
+      // Если выбран новый файл — отдаём его App для загрузки в PocketBase
+      photoFile: photoFileRef.current || undefined,
       photo: formData.photo,
       name: formData.name,
       manufacturer: formData.manufacturer,
@@ -92,6 +98,7 @@ const EditYarnForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarn }) => {
           <FileUploader
             value={formData.photo}
             onChange={(value) => setFormData({ ...formData, photo: value })}
+            onFileChange={(file) => { photoFileRef.current = file; }}
             accept="image/*"
             label="Фото пряжи"
             placeholder="Вставьте URL или загрузите фото"
