@@ -135,20 +135,20 @@ const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
   loadAllRecords('patterns'),
 ]);
 
-      // Пряжа: превращаем photoFile (имя файла) в URL
-      const parsedYarns = yarnsData.map((y: any) => ({
-        ...y,
-        photo: y.photoFile ? pb.files.getURL(y, y.photoFile, { thumb: '200x200' }) : null,
-      }));
-      setYarns(parsedYarns as any);
+// Пряжа: превью из photoFile
+const parsedYarns = yarnsData.map((y: any) => ({
+  ...y,
+  photo: y.photoFile ? pb.files.getURL(y, y.photoFile, { thumb: '200x200' }) : null,
+}));
+setYarns(parsedYarns as any);
 
-      // Образцы: превращаем photoBeforeFile и photoAfterFile в URL
-      const parsedSamples = samplesData.map((s: any) => ({
-        ...s,
-        photoBefore: s.photoBeforeFile ? pb.files.getURL(s, s.photoBeforeFile, { thumb: '200x200' }) : null,
-        photoAfter: s.photoAfterFile ? pb.files.getURL(s, s.photoAfterFile, { thumb: '200x200' }) : null,
-      }));
-      setSamples(parsedSamples as any);
+// Образцы: превью из photoBeforeFile и photoAfterFile
+const parsedSamples = samplesData.map((s: any) => ({
+  ...s,
+  photoBefore: s.photoBeforeFile ? pb.files.getURL(s, s.photoBeforeFile, { thumb: '200x200' }) : null,
+  photoAfter: s.photoAfterFile ? pb.files.getURL(s, s.photoAfterFile, { thumb: '200x200' }) : null,
+}));
+setSamples(parsedSamples as any);
 
       // Проекты: БЕЗОПАСНЫЙ парсинг
       const parsedProjects = projectsData.map((p: any) => {
