@@ -79,7 +79,7 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
           { value: 'stage', label: 'По стадии' },
         ]}
         currentSort={sortBy}
-        onChange={setSortBy}
+        onSortChange={setSortBy}
         filters={[
           {
             label: 'Стадия',

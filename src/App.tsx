@@ -39,26 +39,74 @@ const isDataUrl = (v: any): v is string => typeof v === 'string' && v.startsWith
 const isUploadedFileUrl = (v: any): v is string =>
   typeof v === 'string' && v.includes('/api/files/');
 
+// Вспомогательная коллекция для временной загрузки файлов.
+// Создаётся ОДИН раз через админ-ключ (см. README/инструкции): поле "file"
+// типа File + правило доступа "только авторизованные могут создавать".
+// Это нужно потому, что в схемах yarns/samples файловые поля (photoFile и т.п.)
+// имеют maxSelect = 1, а карточка может содержать несколько фото — каждое
+// такое фото сначала грузится сюда отдельным маленьким multipart-запросом,
+// и только потом в запись попадают короткие URL файлов.
+const TEMP_FILES_COLLECTION = 'temp_files';
+
+// Кэш уже загруженных файлов: одинаковый base64 не грузится на сервер дважды
+const uploadedFilesCache = new Map<string, string>();
+
+// Кэш имён полей схем коллекций (берётся с сервера один раз на коллекцию).
+// Нужен, чтобы не отправлять PocketBase поля, которых нет в схеме —
+// на неизвестное поле сервер отвечает 400 "Field ... is not defined".
+const schemaFieldsCache = new Map<string, Set<string>>();
+const getSchemaFields = async (col: string): Promise<Set<string> | null> => {
+  if (schemaFieldsCache.has(col)) return schemaFieldsCache.get(col)!;
+  try {
+    const meta = await pb.collection(col).getList(1, 1, { requestKey: null });
+    const items = meta.items as any[];
+    if (items.length === 0) return null; // коллекция пуста — поля узнать нельзя
+    const fields = new Set<string>(Object.keys(items[0].toJson()));
+    schemaFieldsCache.set(col, fields);
+    return fields;
+  } catch (e) {
+    return null; // не удалось получить метаданные — будем осторожны
+  }
+};
+
 // Загружает одно фото (base64 data-URL или обычный URL) в PocketBase как ФАЙЛ
 // и возвращает URL загруженного файла. Отправляется один небольшой
 // multipart-запрос с самим файлом — без base64-текста в полях записи.
-const uploadPhotoValue = async (value: string, prefix: string, collection: string): Promise<string> => {
+// ВАЖНО: раньше эта функция создавала временную запись прямо в целевой
+// коллекции (yarns/samples) с полем "file", которого там нет. Из-за этого
+// сервер отвечал 400 Bad Request при сохранении каждой новой карточки.
+// Теперь файл грузится в отдельную коллекцию temp_files (создаётся один раз
+// в админке; см. инструкцию ниже), а в yarns/samples попадает только URL.
+const uploadPhotoValue = async (value: string, prefix: string): Promise<string> => {
   if (!value) return '';
   if (!isDataUrl(value)) return value; // уже URL — ничего не делаем
+  const cached = uploadedFilesCache.get(value);
+  if (cached) return cached;
   const isPdf = value.startsWith('data:application/pdf');
   const file = await base64ToFile(value, `${prefix}_${Date.now()}${isPdf ? '.pdf' : '.jpg'}`);
   const formData = new FormData();
-  formData.append('file', file);
-  const record = await pb.collection(collection).create(formData, { requestKey: null });
-  return pb.files.getURL(record, record.file);
+  formData.append('file', file); // поле "file" в коллекции temp_files
+  let record: any;
+  try {
+    record = await pb.collection(TEMP_FILES_COLLECTION).create(formData, { requestKey: null });
+  } catch (e: any) {
+    console.error(`Не удалось загрузить файл в ${TEMP_FILES_COLLECTION}:`, e?.message || e);
+    throw new Error(
+      `Не удалось загрузить фото на сервер. Проверьте, что в PocketBase создана коллекция "${TEMP_FILES_COLLECTION}" ` +
+      `с полем "file" типа File (maxSelect=1) и правилом доступа "только авторизованные могут создавать".`
+    );
+  }
+  const url = pb.files.getURL(record, record.get('file'));
+  uploadedFilesCache.set(value, url);
+  return url;
 };
 
 // Последовательная загрузка нескольких значений (по одному файлу за запрос),
 // чтобы не «вешать» сервер параллельными тяжёлыми аплоадами.
-const uploadPhotoValues = async (values: string[], prefix: string, collection: string): Promise<string[]> => {
+const uploadPhotoValues = async (values: string[], prefix: string): Promise<string[]> => {
   const result: string[] = [];
   for (let i = 0; i < values.length; i++) {
-    result.push(await uploadPhotoValue(values[i], `${prefix}_${i}`, collection));
+    result.push(await uploadPhotoValue(values[i], `${prefix}_${i}`));
   }
   return result;
 };
@@ -146,13 +194,6 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       loadData();
     }
   }, [user]);
-
-  // Чистим «висящие» незавершённые запросы (например, после зависаний)
-  useEffect(() => {
-    try {
-      pb.cancelRequestsWithPattern?.('*');
-    } catch (e) { /* noop */ }
-  }, []);
 
   // Безопасный парсинг массива URL/файлов из поля PocketBase
   const parseFilesField = (value: any): string[] => {
@@ -299,16 +340,23 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     }
     for (const v of collectValues) {
       if (isDataUrl(v) && !uploadedUrls.has(v)) {
-        const url = await uploadPhotoValue(v, collection, collection);
+        const url = await uploadPhotoValue(v, collection);
         uploadedUrls.set(v, url);
       }
     }
 
     const toJsonString = (v: any) => JSON.stringify(v ?? null);
 
+    // Список полей, определённых в схеме коллекции на сервере. Поля, которых
+    // там нет (например, служебные *File из старых версий кода), PocketBase
+    // отвергает с ошибкой 400 "Field with the name ... is not defined".
+    const knownFields = await getSchemaFields(collection);
+
     const data: any = {};
     for (const key of Object.keys(obj)) {
       if (key === 'id' || key === 'created' || key === 'updated') continue;
+      if (/File[s]?$/.test(key) && !photoFields.includes(key)) continue; // служебные поля
+      if (knownFields && !knownFields.has(key)) continue;                // полей нет в схеме
       let value = obj[key];
       if (photoFields.includes(key)) {
         if (Array.isArray(value)) {
@@ -335,15 +383,15 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
   const handleSaveYarn = async (yarn: Yarn) => {
     try {
       console.log('🟢 handleSaveYarn');
-      const created = await pb.collection('yarns').create(
-        await buildRecordData({ ...yarn, photoFile: '' }, ['photo'], 'yarns'),
+      await pb.collection('yarns').create(
+        await buildRecordData({ ...yarn }, ['photo'], 'yarns'),
         { requestKey: null }
       );
       await loadData();
       setShowAddYarn(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка сохранения пряжи:', error);
-      alert('Не удалось сохранить пряжу');
+      alert(error?.message || 'Не удалось сохранить пряжу');
     }
   };
 
@@ -366,18 +414,14 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
     try {
       console.log('🟢 handleSaveSample');
       await pb.collection('samples').create(
-        await buildRecordData(
-          { ...sample, photoBeforeFile: '', photoAfterFile: '' },
-          ['photoBefore', 'photoAfter'],
-          'samples'
-        ),
+        await buildRecordData(sample, ['photoBefore', 'photoAfter'], 'samples'),
         { requestKey: null }
       );
       await loadData();
       setShowAddSample(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка сохранения образца:', error);
-      alert('Не удалось сохранить образец');
+      alert(error?.message || 'Не удалось сохранить образец');
     }
   };
 
@@ -403,14 +447,14 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       console.log('🟢 handleUpdateYarn');
       await pb.collection('yarns').update(
         updatedYarn.id,
-        await buildRecordData({ ...updatedYarn, photoFile: '' }, ['photo'], 'yarns'),
+        await buildRecordData({ ...updatedYarn }, ['photo'], 'yarns'),
         { requestKey: null }
       );
       await loadData();
       setEditingYarn(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка обновления пряжи:', error);
-      alert('Не удалось обновить пряжу');
+      alert(error?.message || 'Не удалось обновить пряжу');
     }
   };
 
@@ -419,18 +463,14 @@ const loadAllRecords = async (collection: string, sort: string = '-created') => 
       console.log('🟢 handleUpdateSample');
       await pb.collection('samples').update(
         updatedSample.id,
-        await buildRecordData(
-          { ...updatedSample, photoBeforeFile: '', photoAfterFile: '' },
-          ['photoBefore', 'photoAfter'],
-          'samples'
-        ),
+        await buildRecordData(updatedSample, ['photoBefore', 'photoAfter'], 'samples'),
         { requestKey: null }
       );
       await loadData();
       setEditingSample(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка обновления образца:', error);
-      alert('Не удалось сохранить изменения');
+      alert(error?.message || 'Не удалось сохранить изменения');
     }
   };
 
