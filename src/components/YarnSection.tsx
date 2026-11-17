@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Yarn, Project } from '../types';
 import { calcYarnRemaining, calcYarnConsumed } from '../data/mockData';
 import Modal from './Modal';
+import FilterBar from './FilterBar';
+
 interface Props {
   yarns: Yarn[];
   projects: Project[];
@@ -9,10 +11,10 @@ interface Props {
   onEdit?: (yarn: Yarn) => void;
   onDelete?: (id: string) => void;
 }
-import FilterBar from './FilterBar';
 
 const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, onDelete }) => {
   const [selectedYarn, setSelectedYarn] = useState<Yarn | null>(null);
+  const [deletingYarnId, setDeletingYarnId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -56,24 +58,41 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
   const getProjectsUsingYarn = (yarnId: string) =>
     projects.filter((p) => p.yarnUsages.some((u) => u.yarnId === yarnId));
 
+  const handleDeleteClick = (yarnId: string) => {
+    setDeletingYarnId(yarnId);
+  };
+
+  const confirmDelete = () => {
+    if (deletingYarnId && onDelete) {
+      onDelete(deletingYarnId);
+    }
+    setDeletingYarnId(null);
+  };
+
+  const cancelDelete = () => {
+    setDeletingYarnId(null);
+  };
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-4">
-        <FilterBar
-          sortOptions={[
-            { value: 'name', label: 'По названию' },
-            { value: 'manufacturer', label: 'По производителю' },
-            { value: 'remaining', label: 'По остатку' },
-            { value: 'weight', label: 'По весу' },
-            { value: 'date', label: 'По дате добавления' },
-          ]}
-          currentSort={sortBy}
-          onSortChange={setSortBy}
-          filters={[]}
-        />
+        <div className="h-10">
+          <FilterBar
+            sortOptions={[
+              { value: 'name', label: 'По названию' },
+              { value: 'manufacturer', label: 'По производителю' },
+              { value: 'remaining', label: 'По остатку' },
+              { value: 'weight', label: 'По весу' },
+              { value: 'date', label: 'По дате добавления' },
+            ]}
+            currentSort={sortBy}
+            onSortChange={setSortBy}
+            filters={[]}
+          />
+        </div>
         <button
           onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-          className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          className="h-10 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center"
           title={sortDirection === 'asc' ? 'По возрастанию' : 'По убыванию'}
         >
           <i className={`fas fa-sort-${sortDirection === 'asc' ? 'up' : 'down'} mr-1`}></i>
@@ -125,9 +144,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`Удалить пряжу "${yarn.name}"? Это действие нельзя отменить.`)) {
-                      onDelete(yarn.id);
-                    }
+                    handleDeleteClick(yarn.id);
                   }}
                   className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg z-10 transition-colors"
                   title="Удалить"
@@ -145,6 +162,30 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
           <p>Ничего не найдено</p>
         </div>
       )}
+
+      {/* Модальное окно подтверждения удаления */}
+      <Modal isOpen={!!deletingYarnId} onClose={cancelDelete}>
+        <div className="p-5">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Подтверждение удаления</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Удалить пряжу? Это действие нельзя отменить.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={confirmDelete}
+              className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-medium hover:bg-red-700 transition-colors"
+            >
+              <i className="fas fa-trash mr-1"></i> Удалить
+            </button>
+            <button
+              onClick={cancelDelete}
+              className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal isOpen={!!selectedYarn} onClose={() => setSelectedYarn(null)}>
         {selectedYarn && (
