@@ -103,24 +103,19 @@ const loadData = async () => {
   console.log('🟡 loadData вызвана, user:', user);
   setDataLoading(true);
   try {
-    // ✅ ВАЖНО: добавлены photo-поля в списки!
-    const yarnFields = 'id,photo,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,created,updated';
-    const sampleFields = 'id,photoBefore,photoAfter,yarnUsages,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,created,updated';
-
     const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-      loadAllRecords('yarns', '-created', yarnFields),
+      loadAllRecords('yarns', '-created'),
       loadAllRecords('projects'),
-      loadAllRecords('samples', '-created', sampleFields),
+      loadAllRecords('samples', '-created'),
       loadAllRecords('patterns'),
     ]);
-
-    console.log('🟢 samplesData:', samplesData); // ← для диагностики
 
     // 1. Пряжа: фото через getURL
     const parsedYarns = yarnsData.map((y: any) => ({
       ...y,
       photo: y.photo ? pb.files.getURL(y, y.photo) : '',
     }));
+    console.log('🟢 parsedYarns[0].photo:', parsedYarns[0]?.photo);
     setYarns(parsedYarns);
 
     // 2. Образцы: фото через getURL
@@ -130,6 +125,7 @@ const loadData = async () => {
       photoAfter: s.photoAfter ? pb.files.getURL(s, s.photoAfter) : '',
       yarnUsages: Array.isArray(s.yarnUsages) ? s.yarnUsages : [],
     }));
+    console.log('🟢 parsedSamples[0].photoBefore:', parsedSamples[0]?.photoBefore);
     setSamples(parsedSamples);
 
     // 3. Проекты: БЕЗОПАСНЫЙ парсинг
@@ -164,7 +160,6 @@ const loadData = async () => {
     setDataLoading(false);
   }
 };
-
   // Автоскролл наверх при переключении раздела
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
