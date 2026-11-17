@@ -99,70 +99,71 @@ function App() {
     }
   }, [user]);
 
-  const loadData = async () => {
-    console.log('🟡 loadData вызвана, user:', user);
-    setDataLoading(true);
-    try {
-      // ✅ ВАЖНО: добавлены photo-поля в списки!
-      const yarnFields = 'id,photo,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,created,updated';
-      const sampleFields = 'id,photoBefore,photoAfter,yarnUsages,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,created,updated';
+const loadData = async () => {
+  console.log('🟡 loadData вызвана, user:', user);
+  setDataLoading(true);
+  try {
+    // ✅ ВАЖНО: добавлены photo-поля в списки!
+    const yarnFields = 'id,photo,name,manufacturer,article,composition,color,totalWeight,meterage,totalMeterage,shop,orderNumber,pricePerGram,totalPrice,notes,created,updated';
+    const sampleFields = 'id,photoBefore,photoAfter,yarnUsages,needleSize,stitchesWidthBefore,rowsHeightBefore,measurementWidthBefore,measurementHeightBefore,stitchesWidthAfter,rowsHeightAfter,measurementWidthAfter,measurementHeightAfter,created,updated';
 
-      const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
-        loadAllRecords('yarns', '-created', yarnFields),
-        loadAllRecords('projects'),
-        loadAllRecords('samples', '-created', sampleFields),
-        loadAllRecords('patterns'),
-      ]);
-      console.log('🟢 samplesData:', samplesData);
+    const [yarnsData, projectsData, samplesData, patternsData] = await Promise.all([
+      loadAllRecords('yarns', '-created', yarnFields),
+      loadAllRecords('projects'),
+      loadAllRecords('samples', '-created', sampleFields),
+      loadAllRecords('patterns'),
+    ]);
 
-      // 1. Пряжа: фото через getURL
-      const parsedYarns = yarnsData.map((y: any) => ({
-        ...y,
-        photo: y.photo ? pb.files.getURL(y, y.photo) : '',
-      }));
-      setYarns(parsedYarns);
+    console.log('🟢 samplesData:', samplesData); // ← для диагностики
 
-      // 2. Образцы: фото через getURL
-      const parsedSamples = samplesData.map((s: any) => ({
-        ...s,
-        photoBefore: s.photoBefore ? pb.files.getURL(s, s.photoBefore) : '',
-        photoAfter: s.photoAfter ? pb.files.getURL(s, s.photoAfter) : '',
-        yarnUsages: Array.isArray(s.yarnUsages) ? s.yarnUsages : [],
-      }));
-      setSamples(parsedSamples);
+    // 1. Пряжа: фото через getURL
+    const parsedYarns = yarnsData.map((y: any) => ({
+      ...y,
+      photo: y.photo ? pb.files.getURL(y, y.photo) : '',
+    }));
+    setYarns(parsedYarns);
 
-      // 3. Проекты: БЕЗОПАСНЫЙ парсинг
-      const parsedProjects = projectsData.map((p: any) => {
-        let safeYarnUsages = [];
-        if (p.yarnUsages) {
-          if (typeof p.yarnUsages === 'string') {
-            try { safeYarnUsages = JSON.parse(p.yarnUsages); }
-            catch (e) { safeYarnUsages = []; }
-          } else if (Array.isArray(p.yarnUsages)) {
-            safeYarnUsages = p.yarnUsages;
-          }
+    // 2. Образцы: фото через getURL
+    const parsedSamples = samplesData.map((s: any) => ({
+      ...s,
+      photoBefore: s.photoBefore ? pb.files.getURL(s, s.photoBefore) : '',
+      photoAfter: s.photoAfter ? pb.files.getURL(s, s.photoAfter) : '',
+      yarnUsages: Array.isArray(s.yarnUsages) ? s.yarnUsages : [],
+    }));
+    setSamples(parsedSamples);
+
+    // 3. Проекты: БЕЗОПАСНЫЙ парсинг
+    const parsedProjects = projectsData.map((p: any) => {
+      let safeYarnUsages = [];
+      if (p.yarnUsages) {
+        if (typeof p.yarnUsages === 'string') {
+          try { safeYarnUsages = JSON.parse(p.yarnUsages); }
+          catch (e) { safeYarnUsages = []; }
+        } else if (Array.isArray(p.yarnUsages)) {
+          safeYarnUsages = p.yarnUsages;
         }
-        return {
-          ...p,
-          photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-          yarnUsages: safeYarnUsages,
-        };
-      });
-      setProjects(parsedProjects);
-
-      // 4. Схемы: БЕЗОПАСНЫЙ парсинг
-      const parsedPatterns = patternsData.map((p: any) => ({
+      }
+      return {
         ...p,
         photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
-        pdfs: Array.isArray(p.pdfs) ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
-      }));
-      setPatterns(parsedPatterns);
-    } catch (error) {
-      console.error('Ошибка загрузки данных:', error);
-    } finally {
-      setDataLoading(false);
-    }
-  };
+        yarnUsages: safeYarnUsages,
+      };
+    });
+    setProjects(parsedProjects);
+
+    // 4. Схемы: БЕЗОПАСНЫЙ парсинг
+    const parsedPatterns = patternsData.map((p: any) => ({
+      ...p,
+      photos: Array.isArray(p.photos) ? p.photos.map((filename: string) => pb.files.getURL(p, filename)) : [],
+      pdfs: Array.isArray(p.pdfs) ? p.pdfs.map((filename: string) => pb.files.getURL(p, filename)) : [],
+    }));
+    setPatterns(parsedPatterns);
+  } catch (error) {
+    console.error('Ошибка загрузки данных:', error);
+  } finally {
+    setDataLoading(false);
+  }
+};
 
   // Автоскролл наверх при переключении раздела
   useEffect(() => {
