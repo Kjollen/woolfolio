@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Yarn, Project } from '../types';
 import { calcYarnRemaining, calcYarnConsumed } from '../data/mockData';
 import Modal from './Modal';
-
 interface Props {
   yarns: Yarn[];
   projects: Project[];
@@ -10,12 +9,12 @@ interface Props {
   onEdit?: (yarn: Yarn) => void;
   onDelete?: (id: string) => void;
 }
-
 import FilterBar from './FilterBar';
 
 const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, onDelete }) => {
   const [selectedYarn, setSelectedYarn] = useState<Yarn | null>(null);
   const [sortBy, setSortBy] = useState('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const filteredYarns = yarns
     .filter((yarn) => {
@@ -33,15 +32,25 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
       );
     })
     .sort((a, b) => {
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
-      if (sortBy === 'manufacturer') return a.manufacturer.localeCompare(b.manufacturer);
-      if (sortBy === 'remaining') {
+      let comparison = 0;
+      
+      if (sortBy === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortBy === 'manufacturer') {
+        comparison = a.manufacturer.localeCompare(b.manufacturer);
+      } else if (sortBy === 'remaining') {
         const remA = calcYarnRemaining(a.id, a.totalWeight, projects);
         const remB = calcYarnRemaining(b.id, b.totalWeight, projects);
-        return remB - remA;
+        comparison = remA - remB;
+      } else if (sortBy === 'weight') {
+        comparison = a.totalWeight - b.totalWeight;
+      } else if (sortBy === 'date') {
+        const dateA = a.created ? new Date(a.created).getTime() : 0;
+        const dateB = b.created ? new Date(b.created).getTime() : 0;
+        comparison = dateA - dateB;
       }
-      if (sortBy === 'weight') return b.totalWeight - a.totalWeight;
-      return 0;
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
 
   const getProjectsUsingYarn = (yarnId: string) =>
@@ -49,17 +58,29 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
 
   return (
     <div>
-      <FilterBar
-        sortOptions={[
-          { value: 'name', label: 'По названию' },
-          { value: 'manufacturer', label: 'По производителю' },
-          { value: 'remaining', label: 'По остатку' },
-          { value: 'weight', label: 'По весу' },
-        ]}
-        currentSort={sortBy}
-        onSortChange={setSortBy}
-        filters={[]}
-      />
+      <div className="flex items-center gap-2 mb-4">
+        <FilterBar
+          sortOptions={[
+            { value: 'name', label: 'По названию' },
+            { value: 'manufacturer', label: 'По производителю' },
+            { value: 'remaining', label: 'По остатку' },
+            { value: 'weight', label: 'По весу' },
+            { value: 'date', label: 'По дате добавления' },
+          ]}
+          currentSort={sortBy}
+          onSortChange={setSortBy}
+          filters={[]}
+        />
+        <button
+          onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+          className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title={sortDirection === 'asc' ? 'По возрастанию' : 'По убыванию'}
+        >
+          <i className={`fas fa-sort-${sortDirection === 'asc' ? 'up' : 'down'} mr-1`}></i>
+          {sortDirection === 'asc' ? '↑' : '↓'}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredYarns.map((yarn) => {
           const remaining = calcYarnRemaining(yarn.id, yarn.totalWeight, projects);
@@ -124,6 +145,7 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
           <p>Ничего не найдено</p>
         </div>
       )}
+
       <Modal isOpen={!!selectedYarn} onClose={() => setSelectedYarn(null)}>
         {selectedYarn && (
           <>
@@ -193,7 +215,6 @@ const YarnSection: React.FC<Props> = ({ yarns, projects, searchQuery, onEdit, on
                   <InfoItem label="Общая сумма" value={`${selectedYarn.totalPrice} ₽`} />
                 </div>
               </div>
-              {/* Примечание */}
               {selectedYarn.notes && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <h3 className="font-semibold text-gray-700 text-sm mb-2">
