@@ -136,142 +136,183 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
       )}
       {/* Modal */}
       <Modal isOpen={!!selectedSample} onClose={() => setSelectedSample(null)}>
-        {selectedSample && (
-          <>
-            <div className="p-5">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Образец</h2>
-              <div className="mb-4">
-                <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа и сложения</h3>
-                <div className="space-y-2">
-                  {selectedSample.yarnUsages.map((usage) => {
-                    const yarn = yarns.find((y) => y.id === usage.yarnId);
-                    if (!yarn) return null;
-                    return (
-                      <div key={usage.yarnId} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                        <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{yarn.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{yarn.manufacturer} • {yarn.color}</p>
-                          <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
-                        </div>
-                        <div className="flex flex-col items-center bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-1.5">
-                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Сложений</span>
-                          <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{usage.folds}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3">
-                <div className="flex items-center gap-2">
-                  <i className="fas fa-calculator text-indigo-500"></i>
-                  <span className="text-xs text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Итоговая толщина нити</span>
-                </div>
-                <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300 mt-1">
-                  {formatFoldedMeterage(selectedSample.yarnUsages, yarns)}
-                </p>
-                <p className="text-xs text-indigo-400 mt-0.5">
-                  рассчитано по формуле Р = (Р1 × Р2) ÷ (Р1 + Р2)
-                </p>
-              </div>
-              <div className="mb-4">
-                <span className="text-xs text-gray-400 uppercase tracking-wide">Спицы</span>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{selectedSample.needleSize} мм</p>
-              </div>
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                <h3 className="font-semibold text-blue-700 dark:text-blue-300 text-sm mb-2">
-                  <i className="fas fa-tint mr-1"></i> До ВТО
-                </h3>
-                {selectedSample.photoBefore && (
-                  <img src={selectedSample.photoBefore} alt="До ВТО" className="w-full h-32 object-contain rounded-lg mb-2 bg-gray-100 dark:bg-gray-700" />
-                )}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400">Петли в ширину</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.stitchesWidthBefore} п</p>
+  {selectedSample && (
+    <>
+      <div className="p-5">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Образец</h2>
+        
+        {/* Пряжа */}
+        <div className="mb-4">
+          <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-2">Пряжа и сложения</h3>
+          <div className="space-y-2">
+            {selectedSample.yarnUsages.map((usage) => {
+              const yarn = yarns.find((y) => y.id === usage.yarnId);
+              if (!yarn) return null;
+              return (
+                <div key={usage.yarnId} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                  <img src={yarn.photo} alt={yarn.name} className="w-10 h-10 rounded-lg object-cover" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{yarn.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{yarn.manufacturer} • {yarn.color}</p>
+                    <p className="text-xs text-gray-400">Метраж: {yarn.meterage} м/100г</p>
                   </div>
-                  <div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400">Ряды в высоту</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.rowsHeightBefore} р</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400">Ширина</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.measurementWidthBefore} см</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400">Высота</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.measurementHeightBefore} см</p>
+                  <div className="flex flex-col items-center bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-1.5">
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Сложений</span>
+                    <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{usage.folds}</span>
                   </div>
                 </div>
-                <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg p-2 text-center">
-                  <span className="text-xs text-gray-400">Плотность вязания</span>
-                  <p className="font-bold text-blue-700 dark:text-blue-300">
-                    {(selectedSample.stitchesWidthBefore / selectedSample.measurementWidthBefore).toFixed(2)}п × {(selectedSample.rowsHeightBefore / selectedSample.measurementHeightBefore).toFixed(2)}р
-                    <span className="text-xs font-normal text-gray-500"> на 1 см</span>
-                  </p>
-                </div>
-              </div>
-              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                <h3 className="font-semibold text-green-700 dark:text-green-300 text-sm mb-2">
-                  <i className="fas fa-check-circle mr-1"></i> После ВТО
-                </h3>
-                {selectedSample.photoAfter && (
-                  <img src={selectedSample.photoBefore} alt="До ВТО" className="w-full h-32 object-contain rounded-lg mb-2 bg-gray-100 dark:bg-gray-700" />
-                )}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400">Петли в ширину</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.stitchesWidthAfter} п</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400">Ряды в высоту</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.rowsHeightAfter} р</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400">Ширина</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.measurementWidthAfter} см</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400">Высота</span>
-                    <p className="font-medium text-gray-700 dark:text-gray-200">{selectedSample.measurementHeightAfter} см</p>
-                  </div>
-                </div>
-                <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg p-2 text-center">
-                  <span className="text-xs text-gray-400">Плотность вязания</span>
-                  <p className="font-bold text-green-700 dark:text-green-300">
-                    {(selectedSample.stitchesWidthAfter / selectedSample.measurementWidthAfter).toFixed(2)}п × {(selectedSample.rowsHeightAfter / selectedSample.measurementHeightAfter).toFixed(2)}р
-                    <span className="text-xs font-normal text-gray-500"> на 1 см</span>
-                  </p>
-                </div>
-              </div>
-              
-              {/* КНОПКА КАЛЬКУЛЯТОРА */}
-              <button
-                onClick={() => setShowCalculator(true)}
-                className="w-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 py-2.5 rounded-lg font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors mb-2"
-              >
-                <i className="fas fa-calculator mr-2"></i> Рассчитать расход пряжи
-              </button>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setEditingSample(selectedSample)}
-                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
-                >
-                  <i className="fas fa-edit mr-1"></i> Редактировать
-                </button>
-                <button
-                  onClick={() => setSelectedSample(null)}
-                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Закрыть
-                </button>
-              </div>
+        {/* Итоговая толщина */}
+        <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3">
+          <div className="flex items-center gap-2">
+            <i className="fas fa-calculator text-indigo-500"></i>
+            <span className="text-xs text-indigo-600 dark:text-indigo-400 uppercase tracking-wide font-medium">Итоговая толщина нити</span>
+          </div>
+          <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300 mt-1">
+            {formatFoldedMeterage(selectedSample.yarnUsages, yarns)}
+          </p>
+          <p className="text-xs text-indigo-400 mt-0.5">
+            рассчитано по формуле Р = (Р1 × Р2) ÷ (Р1 + Р2)
+          </p>
+        </div>
+
+        {/* Спицы */}
+        <div className="mb-4">
+          <span className="text-xs text-gray-400 uppercase tracking-wide">Спицы</span>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            {selectedSample.needleSize ? `${selectedSample.needleSize} мм` : '—'}
+          </p>
+        </div>
+
+        {/* До ВТО */}
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+          <h3 className="font-semibold text-blue-700 dark:text-blue-300 text-sm mb-2">
+            <i className="fas fa-tint mr-1"></i> До ВТО
+          </h3>
+          {selectedSample.photoBefore && (
+            <img src={selectedSample.photoBefore} alt="До ВТО" className="w-full h-32 object-contain rounded-lg mb-2 bg-gray-100 dark:bg-gray-700" />
+          )}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-xs text-blue-600 dark:text-blue-400">Петли в ширину</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.stitchesWidthBefore ? `${selectedSample.stitchesWidthBefore} п` : '—'}
+              </p>
             </div>
-          </>
+            <div>
+              <span className="text-xs text-blue-600 dark:text-blue-400">Ряды в высоту</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.rowsHeightBefore ? `${selectedSample.rowsHeightBefore} р` : '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-blue-600 dark:text-blue-400">Ширина</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.measurementWidthBefore ? `${selectedSample.measurementWidthBefore} см` : '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-blue-600 dark:text-blue-400">Высота</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.measurementHeightBefore ? `${selectedSample.measurementHeightBefore} см` : '—'}
+              </p>
+            </div>
+          </div>
+          {selectedSample.stitchesWidthBefore && selectedSample.measurementWidthBefore && selectedSample.rowsHeightBefore && selectedSample.measurementHeightBefore && (
+            <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg p-2 text-center">
+              <span className="text-xs text-gray-400">Плотность вязания</span>
+              <p className="font-bold text-blue-700 dark:text-blue-300">
+                {(selectedSample.stitchesWidthBefore / selectedSample.measurementWidthBefore).toFixed(2)}п × {(selectedSample.rowsHeightBefore / selectedSample.measurementHeightBefore).toFixed(2)}р
+                <span className="text-xs font-normal text-gray-500"> на 1 см</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* После ВТО */}
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+          <h3 className="font-semibold text-green-700 dark:text-green-300 text-sm mb-2">
+            <i className="fas fa-check-circle mr-1"></i> После ВТО
+          </h3>
+          {selectedSample.photoAfter && (
+            <img src={selectedSample.photoAfter} alt="После ВТО" className="w-full h-32 object-contain rounded-lg mb-2 bg-gray-100 dark:bg-gray-700" />
+          )}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-xs text-green-600 dark:text-green-400">Петли в ширину</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.stitchesWidthAfter ? `${selectedSample.stitchesWidthAfter} п` : '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-green-600 dark:text-green-400">Ряды в высоту</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.rowsHeightAfter ? `${selectedSample.rowsHeightAfter} р` : '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-green-600 dark:text-green-400">Ширина</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.measurementWidthAfter ? `${selectedSample.measurementWidthAfter} см` : '—'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-green-600 dark:text-green-400">Высота</span>
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {selectedSample.measurementHeightAfter ? `${selectedSample.measurementHeightAfter} см` : '—'}
+              </p>
+            </div>
+          </div>
+          {selectedSample.stitchesWidthAfter && selectedSample.measurementWidthAfter && selectedSample.rowsHeightAfter && selectedSample.measurementHeightAfter && (
+            <div className="mt-2 bg-white dark:bg-gray-800 rounded-lg p-2 text-center">
+              <span className="text-xs text-gray-400">Плотность вязания</span>
+              <p className="font-bold text-green-700 dark:text-green-300">
+                {(selectedSample.stitchesWidthAfter / selectedSample.measurementWidthAfter).toFixed(2)}п × {(selectedSample.rowsHeightAfter / selectedSample.measurementHeightAfter).toFixed(2)}р
+                <span className="text-xs font-normal text-gray-500"> на 1 см</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Особенности ВТО */}
+        {selectedSample.wtoNotes && (
+          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl">
+            <h3 className="font-semibold text-amber-700 dark:text-amber-300 text-sm mb-2">
+              <i className="fas fa-sticky-note mr-1"></i> Особенности ВТО
+            </h3>
+            <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{selectedSample.wtoNotes}</p>
+          </div>
         )}
-      </Modal>
+
+        {/* Кнопки */}
+        <button
+          onClick={() => setShowCalculator(true)}
+          className="w-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 py-2.5 rounded-lg font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors mb-2"
+        >
+          <i className="fas fa-calculator mr-2"></i> Рассчитать расход пряжи
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setEditingSample(selectedSample)}
+            className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+          >
+            <i className="fas fa-edit mr-1"></i> Редактировать
+          </button>
+          <button
+            onClick={() => setSelectedSample(null)}
+            className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </>
+  )}
+</Modal>
       <EditSampleForm
         isOpen={!!editingSample}
         onClose={() => setEditingSample(null)}
