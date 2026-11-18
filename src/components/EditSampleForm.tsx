@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sample, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import FileUploader from './FileUploader';
+import YarnSelector from './YarnSelector';
 
 interface Props {
   isOpen: boolean;
@@ -27,7 +28,6 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
   });
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
-  // Заполнение формы при открытии
   useEffect(() => {
     if (sample) {
       setFormData({
@@ -52,8 +52,7 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
   };
 
   const addYarnUsage = () => {
-    if (yarns.length === 0) return;
-    setYarnUsages([...yarnUsages, { yarnId: yarns[0].id, folds: 1 }]);
+    setYarnUsages([...yarnUsages, { yarnId: '', folds: 1 }]);
   };
 
   const updateYarnUsage = (index: number, field: keyof YarnUsage, value: string | number) => {
@@ -109,16 +108,15 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
             </div>
             <div className="space-y-2">
               {yarnUsages.map((usage, index) => (
-                <div key={index} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                  <select
-                    value={usage.yarnId}
-                    onChange={(e) => updateYarnUsage(index, 'yarnId', e.target.value)}
-                    className="flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
-                  >
-                    {yarns.map((yarn) => (
-                      <option key={yarn.id} value={yarn.id}>{yarn.name}</option>
-                    ))}
-                  </select>
+                <div key={index} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                  <div className="flex-1 min-w-0">
+                    <YarnSelector
+                      yarns={yarns}
+                      value={usage.yarnId}
+                      onChange={(yarnId) => updateYarnUsage(index, 'yarnId', yarnId)}
+                      placeholder="Название, артикул или состав..."
+                    />
+                  </div>
                   <input
                     type="number"
                     value={usage.folds}
@@ -130,7 +128,7 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
                   <button
                     type="button"
                     onClick={() => removeYarnUsage(index)}
-                    className="text-red-500 hover:text-red-600 flex-shrink-0 px-1"
+                    className="text-red-500 hover:text-red-600 flex-shrink-0 px-1 mt-2"
                   >
                     <i className="fas fa-trash text-sm"></i>
                   </button>
@@ -138,6 +136,7 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               ))}
             </div>
           </div>
+
           {/* Спицы */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -153,6 +152,7 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
             />
           </div>
+
           {/* До ВТО */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
             <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
@@ -167,41 +167,14 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
                 placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  name="stitchesWidthBefore"
-                  value={formData.stitchesWidthBefore}
-                  onChange={handleChange}
-                  placeholder="Петли"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="rowsHeightBefore"
-                  value={formData.rowsHeightBefore}
-                  onChange={handleChange}
-                  placeholder="Ряды"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementWidthBefore"
-                  value={formData.measurementWidthBefore}
-                  onChange={handleChange}
-                  placeholder="Ширина (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementHeightBefore"
-                  value={formData.measurementHeightBefore}
-                  onChange={handleChange}
-                  placeholder="Высота (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
+                <input type="number" name="stitchesWidthBefore" value={formData.stitchesWidthBefore} onChange={handleChange} placeholder="Петли" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="rowsHeightBefore" value={formData.rowsHeightBefore} onChange={handleChange} placeholder="Ряды" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementWidthBefore" value={formData.measurementWidthBefore} onChange={handleChange} placeholder="Ширина (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementHeightBefore" value={formData.measurementHeightBefore} onChange={handleChange} placeholder="Высота (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
               </div>
             </div>
           </div>
+
           {/* После ВТО */}
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
             <h3 className="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">
@@ -216,54 +189,20 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
                 placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  name="stitchesWidthAfter"
-                  value={formData.stitchesWidthAfter}
-                  onChange={handleChange}
-                  placeholder="Петли"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="rowsHeightAfter"
-                  value={formData.rowsHeightAfter}
-                  onChange={handleChange}
-                  placeholder="Ряды"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementWidthAfter"
-                  value={formData.measurementWidthAfter}
-                  onChange={handleChange}
-                  placeholder="Ширина (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementHeightAfter"
-                  value={formData.measurementHeightAfter}
-                  onChange={handleChange}
-                  placeholder="Высота (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
+                <input type="number" name="stitchesWidthAfter" value={formData.stitchesWidthAfter} onChange={handleChange} placeholder="Петли" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="rowsHeightAfter" value={formData.rowsHeightAfter} onChange={handleChange} placeholder="Ряды" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementWidthAfter" value={formData.measurementWidthAfter} onChange={handleChange} placeholder="Ширина (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementHeightAfter" value={formData.measurementHeightAfter} onChange={handleChange} placeholder="Высота (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
               </div>
             </div>
           </div>
+
           {/* Кнопки */}
           <div className="flex gap-2 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
-            >
+            <button type="submit" className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
               <i className="fas fa-save mr-1"></i> Сохранить
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
+            <button type="button" onClick={onClose} className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
               Отмена
             </button>
           </div>
