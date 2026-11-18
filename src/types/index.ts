@@ -41,17 +41,18 @@ export interface Sample {
   id: string;
   created?: string;
   yarnUsages: YarnUsage[];
-  needleSize: number;
+  needleSize?: number;
   photoBefore: string;
-  stitchesWidthBefore: number;
-  rowsHeightBefore: number;
-  measurementWidthBefore: number;
-  measurementHeightBefore: number;
+  stitchesWidthBefore?: number;
+  rowsHeightBefore?: number;
+  measurementWidthBefore?: number;
+  measurementHeightBefore?: number;
   photoAfter: string;
-  stitchesWidthAfter: number;
-  rowsHeightAfter: number;
-  measurementWidthAfter: number;
-  measurementHeightAfter: number;
+  stitchesWidthAfter?: number;
+  rowsHeightAfter?: number;
+  measurementWidthAfter?: number;
+  measurementHeightAfter?: number;
+  wtoNotes?: string; // ← ДОБАВЛЕНО: особенности ВТО
 }
 
 export interface Pattern {
