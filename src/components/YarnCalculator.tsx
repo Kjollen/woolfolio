@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Yarn, Sample } from '../types';
+import { Yarn, Sample, YarnUsage } from '../types';
 import Modal from './Modal';
+import { calcFoldedMeterage } from '../utils/yarnCalc';
 
 interface Props {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface Props {
   yarns: Yarn[];
   samples: Sample[];
   selectedYarnIds: string[];
+  yarnUsages?: YarnUsage[]; // ← ДОБАВЛЕНО: массив пряж с количеством сложений
   preselectedSampleId?: string;
 }
 
@@ -15,12 +17,11 @@ type ItemType = 'sweater' | 'cardigan' | 'vest' | 'tshirt' | 'tank' | 'hat' | 's
 type FitType = 'slim' | 'regular' | 'loose' | 'oversize';
 type CalcMode = 'swatch' | 'estimated';
 
-const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, selectedYarnIds, preselectedSampleId }) => {
+const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, selectedYarnIds, yarnUsages, preselectedSampleId }) => {
   const [calcMode, setCalcMode] = useState<CalcMode>('swatch');
   const [itemType, setItemType] = useState<ItemType>('sweater');
   const [fit, setFit] = useState<FitType>('regular');
   const [selectedSample, setSelectedSample] = useState<string>('');
-  
   const [swatchData, setSwatchData] = useState({ width: '', height: '', weight: '' });
   const [density, setDensity] = useState({ stitches: '', rows: '' });
   const [measurements, setMeasurements] = useState({
@@ -29,14 +30,15 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     headCircumference: '56',
     scarfLength: '180',
     scarfWidth: '25',
-    palmCircumference: '20', // для перчаток
-    gloveHeight: '15',       // для перчаток
+    palmCircumference: '20',
+    gloveHeight: '15',
   });
   const [reserve, setReserve] = useState<string>('50');
   const [result, setResult] = useState<{
     totalMeterage: number;
     totalWeight: number;
-    perYarn: { yarnId: string; meterage: number; weight: number }[];
+    effectiveMeterage: number; // ← ДОБАВЛЕНО: итоговый метраж микса
+    perYarn: { yarnId: string; meterage: number; weight: number; folds: number }[];
   } | null>(null);
 
   const getDefaultLength = (type: ItemType): string => {
@@ -101,6 +103,17 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
     return labels[fitType];
   };
 
+  // Получаем актуальные yarnUsages (из пропса или из образца)
+  const getActiveYarnUsages = (): YarnUsage[] => {
+    if (yarnUsages && yarnUsages.length > 0) return yarnUsages;
+    if (preselectedSampleId) {
+      const sample = samples.find(s => s.id === preselectedSampleId);
+      if (sample?.yarnUsages && sample.yarnUsages.length > 0) return sample.yarnUsages;
+    }
+    // Fallback: по 1 сложению для каждой пряжи
+    return selectedYarnIds.map(id => ({ yarnId: id, folds: 1 }));
+  };
+
   // Автозаполнение при открытии из образца
   useEffect(() => {
     if (isOpen && preselectedSampleId) {
@@ -138,19 +151,25 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
       return;
     }
 
+    const activeYarnUsages = getActiveYarnUsages();
     const reserveGrams = parseFloat(reserve.replace(',', '.')) || 0;
     let totalWeightGrams = 0;
 
-    // Средний метраж пряжи (для смешения — среднее арифметическое)
-    const avgMeterage = selectedYarns.reduce((sum, y) => sum + y.meterage, 0) / selectedYarns.length;
-    // Вес пряжи на 1 метр (г/м) — для формулы перчаток
-    const weightPerMeter = 100 / avgMeterage;
+    // ✅ ПРАВИЛЬНЫЙ РАСЧЁТ: используем calcFoldedMeterage из yarnCalc.ts
+    const effectiveMeterage = calcFoldedMeterage(activeYarnUsages, selectedYarns);
+    if (!effectiveMeterage || effectiveMeterage <= 0) {
+      alert('Не удалось рассчитать итоговый метраж. Проверь данные пряжи.');
+      return;
+    }
+
+    // Вес пряжи на 1 метр (г/м)
+    const weightPerMeter = 100 / effectiveMeterage;
 
     if (calcMode === 'swatch') {
       const sWidth = parseFloat(swatchData.width.replace(',', '.'));
       const sHeight = parseFloat(swatchData.height.replace(',', '.'));
       const sWeight = parseFloat(swatchData.weight.replace(',', '.'));
-
+      
       if (!sWidth || !sHeight || !sWeight) {
         alert('Заполни размеры и вес образца');
         return;
@@ -175,15 +194,12 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
         const w = parseFloat(measurements.scarfWidth) || 25;
         garmentArea = len * w;
       } else if (itemType === 'gloves') {
-        // Площадь пары перчаток: 2 × (окружность ладони × высота / 2)
-        // Упрощённо: окружность × высота × 1.5 (два пальца + ладонь)
         const palm = parseFloat(measurements.palmCircumference) || 20;
         const height = parseFloat(measurements.gloveHeight) || 15;
         garmentArea = palm * height * 1.5;
       }
 
       totalWeightGrams = Math.round((garmentArea / swatchArea) * sWeight) + reserveGrams;
-
     } else {
       // Ориентировочный расчёт
       const stitchesNum = parseFloat(density.stitches.replace(',', '.'));
@@ -195,15 +211,10 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
       }
 
       if (itemType === 'gloves') {
-        // Формула из интернета: ((P × (H/10)) × D × W) / 1000
-        // P — окружность ладони (см), H — высота перчатки (см)
-        // D — плотность (петли × ряды на кв.см)
-        // W — вес пряжи на метр (г/м)
         const P = parseFloat(measurements.palmCircumference) || 20;
         const H = parseFloat(measurements.gloveHeight) || 15;
-        const D = (stitchesNum / 10) * ((rowsNum || stitchesNum) / 10); // петель на кв.см
-        const W = weightPerMeter; // г/м
-        // Для пары перчаток умножаем на 2
+        const D = (stitchesNum / 10) * ((rowsNum || stitchesNum) / 10);
+        const W = weightPerMeter;
         totalWeightGrams = Math.round(((P * (H / 10)) * D * W) / 1000 * 2) + reserveGrams;
       } else if (itemType === 'hat') {
         const head = parseFloat(measurements.headCircumference) || 56;
@@ -220,7 +231,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
         const baseWeightPerCm2 = 0.08;
         totalWeightGrams = Math.round(area * baseWeightPerCm2 * densityFactor) + reserveGrams;
       } else {
-        // Одежда (свитер, кардиган, жилет, футболка, майка)
         const bust = parseFloat(measurements.bust) || 90;
         const ease = getEase(fit);
         const widthWithEase = bust + ease;
@@ -233,16 +243,32 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
       }
     }
 
-    const weightPerYarn = Math.round(totalWeightGrams / selectedYarns.length);
-    const perYarn = selectedYarns.map(yarn => ({
-      yarnId: yarn.id,
-      meterage: Math.round((weightPerYarn / 100) * yarn.meterage),
-      weight: weightPerYarn,
-    }));
+    // ✅ Распределение веса по пряжам пропорционально их вкладу в толщину
+    // Вклад пряжи = folds / meterage (чем больше вклад, тем больше её в итоге)
+    const totalContribution = activeYarnUsages.reduce((sum, usage) => {
+      const yarn = selectedYarns.find(y => y.id === usage.yarnId);
+      if (!yarn || yarn.meterage <= 0) return sum;
+      return sum + (usage.folds / yarn.meterage);
+    }, 0);
+
+    const perYarn = activeYarnUsages.map(usage => {
+      const yarn = selectedYarns.find(y => y.id === usage.yarnId);
+      if (!yarn) return null;
+      
+      const contribution = (usage.folds / yarn.meterage) / totalContribution;
+      const yarnWeight = Math.round(totalWeightGrams * contribution);
+      const yarnMeterage = Math.round((yarnWeight / 100) * yarn.meterage);
+      
+      return {
+        yarnId: yarn.id,
+        meterage: yarnMeterage,
+        weight: yarnWeight,
+        folds: usage.folds,
+      };
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
 
     const totalMeterage = perYarn.reduce((sum, p) => sum + p.meterage, 0);
-
-    setResult({ totalMeterage, totalWeight: totalWeightGrams, perYarn });
+    setResult({ totalMeterage, totalWeight: totalWeightGrams, effectiveMeterage, perYarn });
   };
 
   const showLengthField = ['sweater', 'cardigan', 'vest', 'tshirt', 'tank', 'hat'].includes(itemType);
@@ -252,6 +278,13 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
   const showScarfFields = itemType === 'scarf';
   const showHatFields = itemType === 'hat';
 
+  // Показываем информацию о миксе пряжи
+  const activeYarnUsages = getActiveYarnUsages();
+  const mixInfo = activeYarnUsages.map(usage => {
+    const yarn = yarns.find(y => y.id === usage.yarnId);
+    return yarn ? { yarn, folds: usage.folds } : null;
+  }).filter((item): item is NonNullable<typeof item> => item !== null);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-5 max-h-[90vh] overflow-y-auto">
@@ -259,6 +292,27 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
           <i className="fas fa-calculator mr-2 text-emerald-500"></i>
           Калькулятор расхода пряжи
         </h2>
+
+        {/* Информация о миксе пряжи */}
+        {mixInfo.length > 0 && (
+          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <h3 className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-2 uppercase tracking-wide">
+              <i className="fas fa-layer-group mr-1"></i> Состав микса
+            </h3>
+            <div className="space-y-1.5">
+              {mixInfo.map(({ yarn, folds }) => (
+                <div key={yarn.id} className="flex items-center gap-2 text-sm">
+                  <img src={yarn.photo} alt={yarn.name} className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                  <span className="text-gray-700 dark:text-gray-200 truncate flex-1">{yarn.name}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{yarn.meterage} м/100г</span>
+                  <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">
+                    ×{folds}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Переключатель режима */}
@@ -370,7 +424,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
             </div>
           )}
 
-          {/* Режим: ориентировочно — плотность (без выбора образца!) */}
+          {/* Режим: ориентировочно — плотность */}
           {calcMode === 'estimated' && (
             <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -530,6 +584,16 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                 {getItemLabel(itemType)} {calcMode === 'swatch' ? '(точный расчёт)' : '(ориентировочно)'}
               </h3>
               
+              {/* Итоговый метраж микса */}
+              <div className="mb-3 p-2 bg-white dark:bg-gray-800 rounded">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Итоговый метраж микса:</span>
+                  <span className="text-sm font-bold text-purple-700 dark:text-purple-300">
+                    ≈ {Math.round(result.effectiveMeterage)} м/100г
+                  </span>
+                </div>
+              </div>
+
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between items-center p-2 bg-white dark:bg-gray-800 rounded">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Общий вес:</span>
@@ -540,7 +604,6 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                   <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{result.totalMeterage} м</span>
                 </div>
               </div>
-
               {result.perYarn.length > 0 && (
                 <div className="border-t border-emerald-200 dark:border-emerald-800 pt-3">
                   <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">По каждой пряже:</h4>
@@ -554,7 +617,7 @@ const YarnCalculator: React.FC<Props> = ({ isOpen, onClose, yarns, samples, sele
                             <img src={yarn.photo} alt={yarn.name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
                             <div className="min-w-0">
                               <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{yarn.name}</div>
-                              <div className="text-[10px] text-gray-500">{yarn.meterage} м/100г</div>
+                              <div className="text-[10px] text-gray-500">{yarn.meterage} м/100г × {item.folds}</div>
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">
