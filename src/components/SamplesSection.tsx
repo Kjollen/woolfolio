@@ -288,6 +288,7 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
           yarns={yarns}
           samples={samples}
           selectedYarnIds={selectedSample.yarnUsages.map(u => u.yarnId)}
+          yarnUsages={selectedSample.yarnUsages} 
           preselectedSampleId={selectedSample.id}
         />
       )}
