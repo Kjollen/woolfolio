@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sample, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import FileUploader from './FileUploader';
+import YarnSelector from './YarnSelector';
 
 interface Props {
   isOpen: boolean;
@@ -24,7 +25,6 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
     measurementWidthAfter: '',
     measurementHeightAfter: '',
   });
-
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,8 +32,7 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
   };
 
   const addYarnUsage = () => {
-    if (yarns.length === 0) return;
-    setYarnUsages([...yarnUsages, { yarnId: yarns[0].id, folds: 1 }]);
+    setYarnUsages([...yarnUsages, { yarnId: '', folds: 1 }]);
   };
 
   const updateYarnUsage = (index: number, field: keyof YarnUsage, value: string | number) => {
@@ -48,7 +47,6 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const newSample: Sample = {
       id: `s_${Date.now()}`,
       yarnUsages,
@@ -64,7 +62,6 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
       measurementWidthAfter: Number(formData.measurementWidthAfter) || 10,
       measurementHeightAfter: Number(formData.measurementHeightAfter) || 10,
     };
-    
     onSave(newSample);
     onClose();
   };
@@ -73,7 +70,6 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-5">
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Добавить образец</h2>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Пряжа */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -89,31 +85,29 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
                 <i className="fas fa-plus mr-1"></i> Добавить
               </button>
             </div>
-
             <div className="space-y-2">
               {yarnUsages.map((usage, index) => (
-                <div key={index} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                  <select
-                    value={usage.yarnId}
-                    onChange={(e) => updateYarnUsage(index, 'yarnId', e.target.value)}
-                    className="flex-1 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
-                  >
-                    {yarns.map((yarn) => (
-                      <option key={yarn.id} value={yarn.id}>{yarn.name}</option>
-                    ))}
-                  </select>
+                <div key={index} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                  <div className="flex-1 min-w-0">
+                    <YarnSelector
+                      yarns={yarns}
+                      value={usage.yarnId}
+                      onChange={(yarnId) => updateYarnUsage(index, 'yarnId', yarnId)}
+                      placeholder="Название, артикул или состав..."
+                    />
+                  </div>
                   <input
                     type="number"
                     value={usage.folds}
                     onChange={(e) => updateYarnUsage(index, 'folds', Number(e.target.value))}
                     min="1"
                     placeholder="×"
-                    className="w-16 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
+                    className="w-14 sm:w-16 flex-shrink-0 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100 text-center"
                   />
                   <button
                     type="button"
                     onClick={() => removeYarnUsage(index)}
-                    className="text-red-500 hover:text-red-600"
+                    className="text-red-500 hover:text-red-600 flex-shrink-0 px-1 mt-2"
                   >
                     <i className="fas fa-trash text-sm"></i>
                   </button>
@@ -152,38 +146,10 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
                 placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  name="stitchesWidthBefore"
-                  value={formData.stitchesWidthBefore}
-                  onChange={handleChange}
-                  placeholder="Петли"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="rowsHeightBefore"
-                  value={formData.rowsHeightBefore}
-                  onChange={handleChange}
-                  placeholder="Ряды"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementWidthBefore"
-                  value={formData.measurementWidthBefore}
-                  onChange={handleChange}
-                  placeholder="Ширина (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementHeightBefore"
-                  value={formData.measurementHeightBefore}
-                  onChange={handleChange}
-                  placeholder="Высота (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
+                <input type="number" name="stitchesWidthBefore" value={formData.stitchesWidthBefore} onChange={handleChange} placeholder="Петли" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="rowsHeightBefore" value={formData.rowsHeightBefore} onChange={handleChange} placeholder="Ряды" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementWidthBefore" value={formData.measurementWidthBefore} onChange={handleChange} placeholder="Ширина (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementHeightBefore" value={formData.measurementHeightBefore} onChange={handleChange} placeholder="Высота (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
               </div>
             </div>
           </div>
@@ -202,55 +168,20 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
                 placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  name="stitchesWidthAfter"
-                  value={formData.stitchesWidthAfter}
-                  onChange={handleChange}
-                  placeholder="Петли"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="rowsHeightAfter"
-                  value={formData.rowsHeightAfter}
-                  onChange={handleChange}
-                  placeholder="Ряды"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementWidthAfter"
-                  value={formData.measurementWidthAfter}
-                  onChange={handleChange}
-                  placeholder="Ширина (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
-                <input
-                  type="number"
-                  name="measurementHeightAfter"
-                  value={formData.measurementHeightAfter}
-                  onChange={handleChange}
-                  placeholder="Высота (см)"
-                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100"
-                />
+                <input type="number" name="stitchesWidthAfter" value={formData.stitchesWidthAfter} onChange={handleChange} placeholder="Петли" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="rowsHeightAfter" value={formData.rowsHeightAfter} onChange={handleChange} placeholder="Ряды" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementWidthAfter" value={formData.measurementWidthAfter} onChange={handleChange} placeholder="Ширина (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input type="number" name="measurementHeightAfter" value={formData.measurementHeightAfter} onChange={handleChange} placeholder="Высота (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
               </div>
             </div>
           </div>
 
           {/* Кнопки */}
           <div className="flex gap-2 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
-            >
+            <button type="submit" className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
               <i className="fas fa-save mr-1"></i> Сохранить
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
+            <button type="button" onClick={onClose} className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
               Отмена
             </button>
           </div>
