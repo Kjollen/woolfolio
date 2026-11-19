@@ -29,9 +29,22 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
   });
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const { name, value } = e.target;
+  setFormData((prev) => {
+    const next = { ...prev, [name]: value };
+    
+    // Автокопирование петель и рядов из "До ВТО" в "После ВТО"
+    if (name === 'stitchesWidthBefore' && !prev.stitchesWidthAfter) {
+      next.stitchesWidthAfter = value;
+    }
+    if (name === 'rowsHeightBefore' && !prev.rowsHeightAfter) {
+      next.rowsHeightAfter = value;
+    }
+    
+    return next;
+  });
+};
 
   const addYarnUsage = () => {
     setYarnUsages([...yarnUsages, { yarnId: '', folds: 1 }]);
