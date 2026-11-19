@@ -299,6 +299,7 @@ const loadData = async () => {
     try {
       const formData = new FormData();
       if (sample.name) formData.append('name', sample.name);
+      if (sample.wtoNotes) formData.append('wtoNotes', sample.wtoNotes);
       formData.append('needleSize', String(sample.needleSize));
       formData.append('stitchesWidthBefore', String(sample.stitchesWidthBefore));
       formData.append('rowsHeightBefore', String(sample.rowsHeightBefore));
@@ -414,6 +415,7 @@ const loadData = async () => {
     try {
       const formData = new FormData();
       if (updatedSample.name) formData.append('name', updatedSample.name);
+      if (updatedSample.wtoNotes) formData.append('wtoNotes', updatedSample.wtoNotes);
       formData.append('needleSize', String(updatedSample.needleSize));
       formData.append('stitchesWidthBefore', String(updatedSample.stitchesWidthBefore));
       formData.append('rowsHeightBefore', String(updatedSample.rowsHeightBefore));
