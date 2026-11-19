@@ -39,6 +39,7 @@ export interface Project {
 
 export interface Sample {
   id: string;
+  name?: string;
   created?: string;
   yarnUsages: YarnUsage[];
   needleSize?: number;
