@@ -28,21 +28,22 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
     setEditingSample(null);
   };
 
-  const filteredSamples = samples.filter((sample) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const sampleYarns = getSampleYarns(sample);
-    return (
-      sampleYarns.some(
-        (y) =>
-          y.name.toLowerCase().includes(q) ||
-          y.manufacturer.toLowerCase().includes(q) ||
-          y.color.toLowerCase().includes(q)
-      ) ||
-      sample.needleSize.toString().includes(q)
-    );
-  });
-
+const filteredSamples = samples.filter((sample) => {
+  if (!searchQuery) return true;
+  const q = searchQuery.toLowerCase();
+  const sampleYarns = getSampleYarns(sample);
+  return (
+    (sample.name && sample.name.toLowerCase().includes(q)) ||
+    sampleYarns.some(
+      (y) =>
+        y.name.toLowerCase().includes(q) ||
+        y.manufacturer.toLowerCase().includes(q) ||
+        y.color.toLowerCase().includes(q)
+    ) ||
+    sample.needleSize.toString().includes(q)
+  );
+});
+  
   return (
     <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -139,7 +140,16 @@ const SamplesSection: React.FC<Props> = ({ samples, yarns, searchQuery, onSample
   {selectedSample && (
     <>
       <div className="p-5">
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Образец</h2>
+        <div className="flex items-center gap-3 mb-4">
+  <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+    {selectedSample.name || 'Образец'}
+  </h2>
+  {selectedSample.name && (
+    <span className="text-xs bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+      образец
+    </span>
+  )}
+</div>
         
         {/* Пряжа */}
         <div className="mb-4">
