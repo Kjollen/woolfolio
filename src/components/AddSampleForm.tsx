@@ -13,6 +13,7 @@ interface Props {
 
 const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
   const [formData, setFormData] = useState({
+    name: '',
     needleSize: '',
     photoBefore: '',
     stitchesWidthBefore: '',
@@ -50,6 +51,7 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
     e.preventDefault();
     const newSample: Sample = {
       id: `s_${Date.now()}`,
+      name: formData.name || undefined,
       yarnUsages,
       needleSize: formData.needleSize ? Number(formData.needleSize) : undefined,
       photoBefore: formData.photoBefore,
@@ -73,6 +75,24 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
       <div className="p-5">
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Добавить образец</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Название образца */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <i className="fas fa-tag mr-1 text-emerald-500"></i> Название образца
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Например: тест, поло из мохера, джемпер..."
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Необязательно. Поможет найти образец в поиске.
+            </p>
+          </div>
+
           {/* Пряжа */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
