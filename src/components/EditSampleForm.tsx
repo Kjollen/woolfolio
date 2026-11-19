@@ -52,23 +52,26 @@ const EditSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, sampl
   }, [sample]);
 
 const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-  const { name, value } = e.target;
-  setFormData((prev) => {
-    const next = { ...prev, [name]: value };
-    
-    // Автокопирование петель и рядов из "До ВТО" в "После ВТО"
-    // Копируем, если поле пустое ИЛИ содержит "0" (невалидное значение)
-    if (name === 'stitchesWidthBefore' && (prev.stitchesWidthAfter === '' || prev.stitchesWidthAfter === '0')) {
-      next.stitchesWidthAfter = value;
-    }
-    if (name === 'rowsHeightBefore' && (prev.rowsHeightAfter === '' || prev.rowsHeightAfter === '0')) {
-      next.rowsHeightAfter = value;
-    }
-    
-    return next;
-  });
+  setFormData({ ...formData, [e.target.name]: e.target.value });
 };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+  const { name, value } = e.target;
+  
+  if (name === 'stitchesWidthBefore') {
+    setFormData(prev => ({
+      ...prev,
+      stitchesWidthAfter: prev.stitchesWidthAfter === '' || prev.stitchesWidthAfter === '0' ? value : prev.stitchesWidthAfter,
+    }));
+  }
+  if (name === 'rowsHeightBefore') {
+    setFormData(prev => ({
+      ...prev,
+      rowsHeightAfter: prev.rowsHeightAfter === '' || prev.rowsHeightAfter === '0' ? value : prev.rowsHeightAfter,
+    }));
+  }
+};
+  
   const addYarnUsage = () => {
     setYarnUsages([...yarnUsages, { yarnId: '', folds: 1 }]);
   };
@@ -205,8 +208,24 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
                 placeholder="Вставьте URL или загрузите фото"
               />
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" name="stitchesWidthBefore" value={formData.stitchesWidthBefore} onChange={handleChange} placeholder="Петли" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
-                <input type="number" name="rowsHeightBefore" value={formData.rowsHeightBefore} onChange={handleChange} placeholder="Ряды" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
+                <input 
+                  type="number" 
+                  name="stitchesWidthBefore" 
+                  value={formData.stitchesWidthBefore} 
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder="Петли" 
+                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" 
+                />
+                <input 
+                  type="number" 
+                  name="rowsHeightBefore" 
+                  value={formData.rowsHeightBefore} 
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder="Ряды" 
+                  className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" 
+                />
                 <input type="number" name="measurementWidthBefore" value={formData.measurementWidthBefore} onChange={handleChange} placeholder="Ширина (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
                 <input type="number" name="measurementHeightBefore" value={formData.measurementHeightBefore} onChange={handleChange} placeholder="Высота (см)" className="px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-900 dark:text-gray-100" />
               </div>
