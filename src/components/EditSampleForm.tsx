@@ -57,10 +57,11 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
     const next = { ...prev, [name]: value };
     
     // Автокопирование петель и рядов из "До ВТО" в "После ВТО"
-    if (name === 'stitchesWidthBefore' && !prev.stitchesWidthAfter) {
+    // Копируем, если поле пустое ИЛИ содержит "0" (невалидное значение)
+    if (name === 'stitchesWidthBefore' && (prev.stitchesWidthAfter === '' || prev.stitchesWidthAfter === '0')) {
       next.stitchesWidthAfter = value;
     }
-    if (name === 'rowsHeightBefore' && !prev.rowsHeightAfter) {
+    if (name === 'rowsHeightBefore' && (prev.rowsHeightAfter === '' || prev.rowsHeightAfter === '0')) {
       next.rowsHeightAfter = value;
     }
     
