@@ -30,21 +30,24 @@ const AddSampleForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns }) => {
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
 
 const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  setFormData({ ...formData, [e.target.name]: e.target.value });
+};
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
   const { name, value } = e.target;
-  setFormData((prev) => {
-    const next = { ...prev, [name]: value };
-    
-    // Автокопирование петель и рядов из "До ВТО" в "После ВТО"
-    // Копируем, если поле пустое ИЛИ содержит "0" (невалидное значение)
-    if (name === 'stitchesWidthBefore' && (prev.stitchesWidthAfter === '' || prev.stitchesWidthAfter === '0')) {
-      next.stitchesWidthAfter = value;
-    }
-    if (name === 'rowsHeightBefore' && (prev.rowsHeightAfter === '' || prev.rowsHeightAfter === '0')) {
-      next.rowsHeightAfter = value;
-    }
-    
-    return next;
-  });
+  
+  if (name === 'stitchesWidthBefore') {
+    setFormData(prev => ({
+      ...prev,
+      stitchesWidthAfter: prev.stitchesWidthAfter === '' || prev.stitchesWidthAfter === '0' ? value : prev.stitchesWidthAfter,
+    }));
+  }
+  if (name === 'rowsHeightBefore') {
+    setFormData(prev => ({
+      ...prev,
+      rowsHeightAfter: prev.rowsHeightAfter === '' || prev.rowsHeightAfter === '0' ? value : prev.rowsHeightAfter,
+    }));
+  }
 };
 
   const addYarnUsage = () => {
