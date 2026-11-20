@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import Modal from './Modal';
 import MultiFileUploader from './MultiFileUploader';
+import YarnSelector from './YarnSelector';
 
 interface Props {
   isOpen: boolean;
@@ -21,11 +22,9 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
     notes: '',
   });
   const [photos, setPhotos] = useState<string[]>([]);
-  // Настоящие НОВЫЕ выбранные файлы (позиции соответствуют photos)
   const photoFilesRef = useRef<(File | null)[]>([]);
   const [yarnUsages, setYarnUsages] = useState<YarnUsage[]>([]);
-  
-  // Заполнение формы при открытии
+
   useEffect(() => {
     if (project) {
       setFormData({
@@ -46,8 +45,7 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
   };
 
   const addYarnUsage = () => {
-    if (yarns.length === 0) return;
-    setYarnUsages([...yarnUsages, { yarnId: yarns[0].id, folds: 1, consumed: 0 }]);
+    setYarnUsages([...yarnUsages, { yarnId: '', folds: 1, consumed: 0 }]);
   };
 
   const updateYarnUsage = (index: number, field: keyof YarnUsage, value: string | number) => {
@@ -63,7 +61,6 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!project) return;
-
     const updatedProject: Project = {
       ...project,
       photos,
@@ -76,7 +73,6 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
       endDate: formData.endDate,
       notes: formData.notes,
     };
-
     onSave(updatedProject as any);
     onClose();
   };
@@ -118,73 +114,7 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
             </select>
           </div>
 
-          {/* Пряжа */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                <i className="fas fa-yin-yang mr-1 text-emerald-500"></i> Пряжа
-              </h3>
-              <button
-                type="button"
-                onClick={addYarnUsage}
-                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-              >
-                <i className="fas fa-plus mr-1"></i> Добавить пряжу
-              </button>
-            </div>
-            {yarnUsages.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-                Пряжа не добавлена
-              </p>
-            )}
-            <div className="space-y-3">
-              {yarnUsages.map((usage, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Пряжа #{index + 1}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeYarnUsage(index)}
-                      className="text-red-500 hover:text-red-600 text-sm"
-                    >
-                      <i className="fas fa-trash"></i>
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <select
-                      value={usage.yarnId}
-                      onChange={(e) => updateYarnUsage(index, 'yarnId', e.target.value)}
-                      className="col-span-2 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
-                    >
-                      {yarns.map((yarn) => (
-                        <option key={yarn.id} value={yarn.id}>
-                          {yarn.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      value={usage.folds}
-                      onChange={(e) => updateYarnUsage(index, 'folds', Number(e.target.value))}
-                      min="1"
-                      placeholder="Сложений"
-                      className="px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <input
-                    type="number"
-                    value={usage.consumed || 0}
-                    onChange={(e) => updateYarnUsage(index, 'consumed', Number(e.target.value))}
-                    min="0"
-                    placeholder="Расход (г)"
-                    className="w-full mt-2 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-                    
-          {/* Спицы и даты */}
+          {/* Спицы и даты — ПОДНЯТЫ ВЫШЕ */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -223,6 +153,69 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
                 onChange={handleChange}
                 className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-300 dark:focus:ring-emerald-700 text-gray-900 dark:text-gray-100"
               />
+            </div>
+          </div>
+
+          {/* Пряжа — с YarnSelector */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <i className="fas fa-yin-yang mr-1 text-emerald-500"></i> Пряжа
+              </h3>
+              <button
+                type="button"
+                onClick={addYarnUsage}
+                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                <i className="fas fa-plus mr-1"></i> Добавить пряжу
+              </button>
+            </div>
+            {yarnUsages.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                Пряжа не добавлена
+              </p>
+            )}
+            <div className="space-y-3">
+              {yarnUsages.map((usage, index) => (
+                <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Пряжа #{index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeYarnUsage(index)}
+                      className="text-red-500 hover:text-red-600 text-sm"
+                    >
+                      <i className="fas fa-trash"></i>
+                    </button>
+                  </div>
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1 min-w-0">
+                      <YarnSelector
+                        yarns={yarns}
+                        value={usage.yarnId}
+                        onChange={(yarnId) => updateYarnUsage(index, 'yarnId', yarnId)}
+                        placeholder="Название, артикул или состав..."
+                      />
+                    </div>
+                    <input
+                      type="number"
+                      value={usage.folds}
+                      onChange={(e) => updateYarnUsage(index, 'folds', Number(e.target.value))}
+                      min="1"
+                      placeholder="×"
+                      className="w-14 sm:w-16 flex-shrink-0 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100 text-center"
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    value={usage.consumed || 0}
+                    onChange={(e) => updateYarnUsage(index, 'consumed', Number(e.target.value))}
+                    min="0"
+                    placeholder="Расход (г)"
+                    className="w-full mt-2 px-2 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-sm text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -269,7 +262,7 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
           </div>
         </form>
       </div>
-     </Modal>
+    </Modal>
   );
 };
 
