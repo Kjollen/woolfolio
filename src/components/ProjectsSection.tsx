@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+  import React, { useState } from 'react';
 import { Project, Yarn, YarnUsage } from '../types';
 import { formatFoldedMeterage } from '../utils/yarnCalc';
 import Modal from './Modal';
@@ -24,6 +24,14 @@ const stageColors: Record<string, string> = {
   planned: 'bg-blue-100 text-blue-700',
   in_progress: 'bg-amber-100 text-amber-700',
   completed: 'bg-green-100 text-green-700',
+};
+
+const formatDate = (dateStr?: string): string => {
+  if (!dateStr) return '—';
+  const clean = dateStr.split(' ')[0].split('T')[0]; // "2026-11-19"
+  const parts = clean.split('-');
+  if (parts.length !== 3) return clean;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`; // "19.11.2026"
 };
 
 const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProjectUpdate, onDelete }) => {
@@ -235,10 +243,10 @@ const ProjectsSection: React.FC<Props> = ({ projects, yarns, searchQuery, onProj
                   {formatFoldedMeterage(selectedProject.yarnUsages, yarns)}
                 </p>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <InfoItem label="Спицы" value={`${selectedProject.needleSize} мм`} />
-                <InfoItem label="Дата начала" value={selectedProject.startDate || '—'} />
-                <InfoItem label="Дата завершения" value={selectedProject.endDate || '—'} />
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <InfoItem label="Спицы" value={selectedProject.needleSize ? `${selectedProject.needleSize} мм` : '—'} />
+                <InfoItem label="Дата начала" value={formatDate(selectedProject.startDate)} />
+                <InfoItem label="Дата завершения" value={formatDate(selectedProject.endDate)} />
               </div>
               {selectedProject.notes && (
                 <div className="mt-4">
