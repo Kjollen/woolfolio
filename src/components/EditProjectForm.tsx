@@ -31,8 +31,8 @@ const EditProjectForm: React.FC<Props> = ({ isOpen, onClose, onSave, yarns, proj
         name: project.name,
         stage: project.stage || 'planned',
         needleSize: String(project.needleSize),
-        startDate: project.startDate || '',
-        endDate: project.endDate || '',
+        startDate: project.startDate ? project.startDate.split(' ')[0].split('T')[0] : '',
+        endDate: project.endDate ? project.endDate.split(' ')[0].split('T')[0] : '',
         notes: project.notes || '',
       });
       setPhotos(project.photos || []);
